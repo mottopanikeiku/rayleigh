@@ -4,6 +4,8 @@ This checks whether a small, same-item LLM pilot can reliably plan a larger accu
 
 **Question:** how many items do two models need, and how often does a pilot get that budget right?
 
+[Try my item-budget calculator](https://mottopanikeiku.github.io/eval-power/) for paired or unpaired comparisons and the committed pilot-calibration results.
+
 This extends [Kotawala’s paired audit](https://arxiv.org/abs/2605.30315) and [Basile et al.’s planning toolkit](https://aclanthology.org/2026.lrec-1.353/) with disjoint-pilot calibration—not new power formulas. Data are tinyBenchmarks’ **selected 395-model, 2024 Open LLM Leaderboard population**, not current frontier models ([source and licenses](data/manifest.json)).
 
 [stats.py](src/eval_power/stats.py) contains paired, unpaired and clustered errors plus an item-count planner. [analysis.py](src/eval_power/analysis.py) fits small pilots, then checks their predictions using heldout item subsampling and exact McNemar tests.
@@ -53,8 +55,6 @@ Noisy pilot effects producing underpowered follow-ups are established concerns: 
 ## Reproduce and plan
 
 CPU-only, $0 paid compute; Ryzen AI 5 PRO 340, one numerical thread, Python 3.11 ([environment](results/environment.json)). Matrices are committed; the optional [importer](scripts/import_data.py) pins source hashes. Model inference was not run.
-
-Shared machine: use `pp-run heavy` instead of `nice -n 19`.
 
 ```sh
 uv sync --locked
