@@ -6,18 +6,23 @@ import hashlib
 import json
 import math
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
+from calibrate import build, make_figure
+from export_example import EXAMPLE, build_example
+from hero import THEMES, make_hero
 from pilot_revision import build_revision
 
 from eval_power.analysis import BENCHMARKS
 from eval_power.arena import ELO_SCALE, contrast, fit_bt, planned_votes
+from eval_power.calibration import ALPHA, POWER, exact_oracle_items
 from eval_power.grading import grade_answer, grade_strict_answer
 from eval_power.prospective import analyze_plan, analyze_strict_secondary, validate_sources
-from eval_power.stats import holm_adjust
+from eval_power.stats import exact_mcnemar_power, holm_adjust
 
 
 def rows(name: str) -> list[dict]:
@@ -133,6 +138,79 @@ def check_prospective() -> None:
         json.loads((directory / "pilot_revision.json").read_text()),
         "pilot_revision.json",
     )
+
+
+def assert_csv_matches(path: Path, expected: list[dict]) -> None:
+    """Committed CSV text versus regenerated rows, with assert_matches float tolerance."""
+    with path.open(newline="", encoding="utf-8") as handle:
+        committed = list(csv.DictReader(handle))
+    assert len(committed) == len(expected), f"{path}: row count"
+    for index, (row, reference) in enumerate(zip(committed, expected, strict=True)):
+        assert list(row) == list(reference), f"{path}[{index}]: columns"
+        for key, value in reference.items():
+            where = f"{path}[{index}].{key}"
+            if value is None:
+                assert row[key] == "", where
+            elif isinstance(value, float):
+                assert_matches(float(row[key]), value, where)
+            else:
+                assert row[key] == str(value), where
+
+
+def check_known_truth() -> None:
+    """Regenerate every known-truth artifact, compare, then test the claims it supports."""
+    directory = Path("results/known_truth")
+    configuration = json.loads((directory / "configuration.json").read_text())
+    result, sensitivity = build(
+        configuration["seed"],
+        configuration["outer"],
+        configuration["inner"],
+        configuration["reference_trials"],
+        configuration["cap"],
+    )
+    for key in ("reference", "nested", "shared_models"):
+        assert_csv_matches(directory / f"{key}.csv", result[key])
+    for key, document in (
+        ("configuration", result["configuration"]),
+        ("confirmation_sensitivity", sensitivity),
+    ):
+        assert_matches(
+            json.loads(json.dumps(document, allow_nan=False)),
+            json.loads((directory / f"{key}.json").read_text()),
+            f"known_truth {key}",
+        )
+    with tempfile.TemporaryDirectory() as scratch:
+        figures = [(Path(scratch) / "known_truth.svg", Path("figures/known_truth.svg"))]
+        make_figure(result["nested"], figures[0][0])
+        for theme in THEMES:
+            figures.append((Path(scratch) / f"hero-{theme}.svg", Path(f"docs/hero-{theme}.svg")))
+            make_hero(theme, figures[-1][0])
+        for fresh, committed in figures:
+            assert fresh.read_bytes() == committed.read_bytes(), f"{committed} is stale"
+    for row in result["reference"]:
+        exact, rate = row["exact_power"], row["mc_rate"]
+        if exact in (0, 1):
+            assert rate == exact, row
+        else:
+            assert abs(rate - exact) <= 4.5 * math.sqrt(exact * (1 - exact) / row["trials"]), row
+    for row in result["nested"]:
+        accounted = row["undefined_plans"] + row["over_cap_plans"] + row["executed_plans"]
+        assert accounted == row["total_plans"], row
+        assert row["holm_workflow_rate"] <= row["nominal_workflow_rate"], row
+        if row["delta"] == 0:
+            # Plans never see heldout data, so the exact test keeps its level.
+            assert row["nominal_workflow_rate"] <= ALPHA + 4 * row["nominal_workflow_mc_se"], row
+        if row["rule"] == "exact_oracle" and row["delta"] == row["target"]:
+            n = exact_oracle_items(row["target"], row["discordance"])
+            expected = exact_mcnemar_power(row["delta"], row["discordance"], n)
+            assert expected >= POWER
+            assert (
+                abs(row["nominal_workflow_rate"] - expected) <= 4.5 * row["nominal_workflow_mc_se"]
+            ), row
+    for row in result["shared_models"]:
+        if row["adjustment"] == "holm":
+            assert row["fwer"] <= ALPHA + 4 * math.sqrt(ALPHA * (1 - ALPHA) / row["trials"]), row
+    assert EXAMPLE.read_text(encoding="utf-8") == build_example(), f"{EXAMPLE} is stale"
 
 
 def check_arena() -> None:
@@ -293,9 +371,12 @@ def main() -> None:
         assert ET.parse(Path("figures") / name).getroot().tag.endswith("svg")
     assert Path("README.md").read_text().rstrip().endswith("Written with AI coding assistance.")
     check_prospective()
+    check_known_truth()
     print(
         "Validated five pinned binary matrices, all-pair Holm families, "
-        "calibration rows, fresh-item response counts and grades, and SVGs."
+        "calibration rows, fresh-item response counts and grades, and SVGs. "
+        "Regenerated the known-truth tables, sensitivity audit, calibration figure, "
+        "README hero and CSV example; all match."
     )
 
 

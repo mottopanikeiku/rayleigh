@@ -21,4 +21,16 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest -q
-      - run: uv run python scripts/check_results.py
+      - name: Regenerate and compare committed results, figures, hero and example
+        run: uv run python scripts/check_results.py
+      - run: uv run python examples/plan_from_pilot.py
+      - name: Install the wheel in a clean environment and run the CLI example
+        run: |
+          uv build --wheel --out-dir "$RUNNER_TEMP/dist"
+          uv venv "$RUNNER_TEMP/wheel-env"
+          uv pip install --python "$RUNNER_TEMP/wheel-env" "$RUNNER_TEMP"/dist/eval_power-*.whl
+          cd "$RUNNER_TEMP"
+          wheel-env/bin/rayleigh --difference 0.05 \
+            --pilot "$GITHUB_WORKSPACE/examples/gsm8k_qwen7_phi35_pilot.csv" > plan.json
+          grep -F '"bound_items_per_model": 787' plan.json
+          wheel-env/bin/python -c "import eval_power; assert 'site-packages' in eval_power.__file__"

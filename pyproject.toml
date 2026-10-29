@@ -4,14 +4,22 @@ build-backend = "hatchling.build"
 
 [project]
 name = "eval-power"
-version = "0.1.0"
-description = "Power planning for paired LLM accuracy and human-preference comparisons"
+version = "0.2.0"
+description = "rayleigh: calibrated power planning for paired model evaluations"
 requires-python = ">=3.11"
 license = "MIT"
+readme = "README.md"
+authors = [{name = "Alp Cetin"}]
 dependencies = ["numpy>=2.2,<3", "scipy>=1.15,<2", "matplotlib>=3.9,<4"]
+
+[project.urls]
+Homepage = "https://github.com/mottopanikeiku/rayleigh"
+Documentation = "https://github.com/mottopanikeiku/rayleigh#readme"
+Issues = "https://github.com/mottopanikeiku/rayleigh/issues"
 
 [project.scripts]
 eval-power = "eval_power.cli:main"
+rayleigh = "eval_power.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8.3,<10", "ruff>=0.11,<1"]

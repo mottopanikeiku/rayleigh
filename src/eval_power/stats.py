@@ -6,7 +6,7 @@ from numbers import Integral, Real
 import numpy as np
 from scipy.optimize import brentq
 from scipy.special import ndtr, ndtri
-from scipy.stats import binom
+from scipy.stats import beta, binom
 
 
 def _binary_pair(a, b, minimum=1):
@@ -174,6 +174,68 @@ def mcnemar_pvalue(a, b) -> float:
     if discordance == 0:
         return 1.0
     return min(1.0, float(2 * binom.cdf(min(a_only, b_only), discordance, 0.5)))
+
+
+def _mcnemar_tails(m, theta, alpha):
+    """Conditional rejection probabilities of the exact two-sided McNemar test.
+
+    Given m discordant items whose A-only count is Binomial(m, theta), return the
+    probabilities of rejecting with a low and a high A-only count, respectively.
+    """
+    # Largest k with 2 * P[Bin(m, 1/2) <= k] <= alpha. The quantile
+    # itself generally lies just outside that rejection region.
+    cutoff = binom.ppf(alpha / 2, m, 0.5).astype(np.int64)
+    cutoff -= 2 * binom.cdf(cutoff, m, 0.5) > alpha
+    return binom.cdf(cutoff, m, theta), binom.sf(m - cutoff - 1, m, theta)
+
+
+def exact_mcnemar_power(delta, discordance, n, alpha=0.05) -> float:
+    """Reference power of the exact two-sided McNemar test on IID binary pairs.
+
+    Let M ~ Binomial(n, discordance). Conditional on M=m, the A-only count is
+    Binomial(m, (discordance + delta) / (2 * discordance)). Sum the probability
+    of rejection over every m, including zero. No normal approximation or
+    Monte Carlo is used. Runtime is linear in n; working memory is bounded.
+    This is known-DGP power, not a guarantee from plug-in pilot parameters.
+    """
+    delta = _finite_real(delta, "delta")
+    discordance = _finite_real(discordance, "discordance")
+    alpha = _finite_real(alpha, "alpha")
+    n = _item_count(n)
+    if not abs(delta) <= discordance <= 1:
+        raise ValueError("require abs(delta) <= discordance <= 1")
+    if not 0 < alpha < 1:
+        raise ValueError("alpha must lie strictly between 0 and 1")
+    if discordance == 0:
+        return 0.0
+    theta = (1 + delta / discordance) / 2
+    pieces = []
+    for start in range(0, n + 1, 65536):
+        m = np.arange(start, min(n + 1, start + 65536))
+        low, high = _mcnemar_tails(m, theta, alpha)
+        pieces.append(float(binom.pmf(m, n, discordance) @ (low + high)))
+    return float(np.clip(math.fsum(pieces), 0, 1))
+
+
+def discordance_upper_bound(discordant, n, confidence=0.95):
+    """One-sided Clopper-Pearson upper bound on q = P(A != B) from a paired pilot.
+
+    Var(A - B) = q - delta**2 <= q, so the bound is a conservative planning
+    variance that ignores the pilot's signed gap. A pilot without discordant
+    items still gives a positive bound; an all-discordant pilot gives 1.
+    Accepts integer scalars or broadcastable integer arrays.
+    """
+    discordant, n = np.asarray(discordant), np.asarray(n)
+    if discordant.dtype.kind not in "iu" or n.dtype.kind not in "iu":
+        raise ValueError("discordant and n must be integer counts")
+    if np.any(n < 1) or np.any(discordant < 0) or np.any(discordant > n):
+        raise ValueError("require n >= 1 and 0 <= discordant <= n")
+    confidence = _finite_real(confidence, "confidence")
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must lie strictly between 0 and 1")
+    interior = beta.ppf(confidence, discordant + 1, np.maximum(n - discordant, 1))
+    bound = np.where(discordant < n, interior, 1.0)
+    return float(bound) if bound.ndim == 0 else bound
 
 
 def holm_adjust(pvalues) -> np.ndarray:
