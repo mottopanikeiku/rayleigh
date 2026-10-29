@@ -6,12 +6,21 @@ families. Monte Carlo errors cluster at the outer replicate, not the inner test.
 """
 
 import math
+from functools import cache
 
 import numpy as np
-from scipy.stats import beta, binom
+from scipy.stats import binom, nct, norm, t
 
 from .analysis import wilson_interval
-from .stats import _target_noncentrality, exact_mcnemar_power, holm_adjust, required_items
+from .stats import (
+    _mcnemar_tails,
+    _normal_power,
+    _target_noncentrality,
+    discordance_upper_bound,
+    exact_mcnemar_power,
+    holm_adjust,
+    required_items,
+)
 
 SCENARIOS = (
     ("rare_1pct", 0.01, 0.005),
@@ -20,10 +29,22 @@ SCENARIOS = (
     ("moderate_10pp", 0.50, 0.10),
     ("small_n", 0.80, 0.60),
 )
-RULES = ("observed_gap", "fixed_effect", "variance_only_bound", "known_variance")
+RULES = ("observed_gap", "fixed_effect", "discordance_bound", "known_variance", "exact_oracle")
+RULE_LABELS = {
+    "observed_gap": "Observed pilot gap",
+    "fixed_effect": "Fixed effect, pilot variance",
+    "discordance_bound": "Fixed effect, discordance bound",
+    "known_variance": "Fixed effect, true variance (Gaussian)",
+    "exact_oracle": "Exact oracle (true q, exact test)",
+}
 ALPHA = 0.05
 POWER = 0.8
 FAMILY = 3
+
+
+def scenario_label(discordance, target):
+    """Display name for a scenario: discordance rate and meaningful effect."""
+    return f"q={100 * discordance:g}%, {100 * target:g}-point effect"
 
 
 def paired_probabilities(delta, discordance):
@@ -53,13 +74,75 @@ def family_adjust(pvalues):
     return np.take_along_axis(adjusted, np.argsort(order, axis=-1), axis=-1)
 
 
-def plan_counts(counts, target, discordance, rule):
-    """Normal budgets: -1 denotes an undefined plan, never a zero-item study.
+@cache
+def exact_oracle_items(target, discordance):
+    """Smallest N whose exact two-sided McNemar power at the true DGP reaches POWER.
 
-    fixed_effect uses unbiased pilot Var(A-B). variance_only_bound instead uses
-    a one-sided 95% Clopper-Pearson upper bound on q=P(A!=B), hence on Var(A-B).
-    It ignores the signed pilot gap, including in its variance estimate.
-    known_variance uses true q-target**2 at the design alternative (an oracle).
+    Exact power is sawtoothed in N, so a slightly larger N can fall back below
+    the target. The linear search stops at four times the Gaussian budget at the
+    null variance q, plus 64 items; no grid scenario comes close to that limit.
+    """
+    if not 0 < abs(target) <= discordance <= 1:
+        raise ValueError("require 0 < abs(target) <= discordance <= 1")
+    limit = 4 * required_items(target, discordance, ALPHA, POWER) + 64
+    m = np.arange(limit + 1)
+    low, high = _mcnemar_tails(m, (1 + target / discordance) / 2, ALPHA)
+    conditional = low + high
+    for n in range(1, limit + 1):
+        if binom.pmf(m[: n + 1], n, discordance) @ conditional[: n + 1] >= POWER:
+            return n
+    raise ValueError("exact oracle budget exceeds the search limit")
+
+
+def exact_wrong_sign(delta, discordance, n):
+    """Exact probability that the two-sided test rejects in the wrong direction."""
+    if delta == 0:
+        return None
+    m = np.arange(n + 1)
+    low, high = _mcnemar_tails(m, (1 + delta / discordance) / 2, ALPHA)
+    return float(binom.pmf(m, n, discordance) @ (low if delta > 0 else high))
+
+
+def known_truth_budgets(target, discordance):
+    """Three known-q budgets and their exact power: where Gaussian planning loses power.
+
+    The Wald budget uses Var(A-B)=q-target**2 for both normal quantiles. The
+    McNemar statistic's null variance is q, so the null-variance budget uses q
+    for the alpha quantile and q-target**2 for the power quantile. The exact
+    oracle searches exact power directly.
+    """
+    alternative = discordance - target**2
+    null_variance = math.ceil(
+        (
+            (
+                norm.ppf(1 - ALPHA / 2) * math.sqrt(discordance)
+                + norm.ppf(POWER) * math.sqrt(alternative)
+            )
+            / target
+        )
+        ** 2
+    )
+    budgets = {
+        "gaussian_known_variance": required_items(target, alternative, ALPHA, POWER),
+        "null_variance_gaussian": null_variance,
+        "exact_oracle": exact_oracle_items(target, discordance),
+    }
+    result = {}
+    for name, n in budgets.items():
+        result[f"{name}_n"] = n
+        result[f"{name}_exact_power"] = exact_mcnemar_power(target, discordance, n)
+    return result
+
+
+def plan_counts(counts, target, discordance, rule):
+    """Per-pilot budgets: -1 denotes an undefined plan, never a zero-item study.
+
+    fixed_effect uses unbiased pilot Var(A-B) in the Gaussian formula.
+    discordance_bound instead uses a one-sided 95% Clopper-Pearson upper bound
+    on q=P(A!=B), hence on Var(A-B); it ignores the signed pilot gap.
+    known_variance uses true q-target**2 at the design alternative in the same
+    Gaussian formula (a Wald-test oracle). exact_oracle is the smallest N with
+    exact McNemar power >= POWER at the true q and the meaningful effect.
     All rules target nominal, not familywise, 80% power.
     """
     counts = np.asarray(counts)
@@ -68,14 +151,14 @@ def plan_counts(counts, target, discordance, rule):
         raise ValueError("pilots require at least two items and nonnegative counts")
     d = counts[..., 1] + counts[..., 2]
     gap = (counts[..., 2] - counts[..., 1]) / n
+    if rule == "exact_oracle":
+        return np.full(gap.shape, exact_oracle_items(target, discordance), dtype=np.int64)
     variance = (d / n - gap**2) * n / (n - 1)
     effect = np.full(gap.shape, target)
     if rule == "observed_gap":
         effect = np.abs(gap)
-    elif rule == "variance_only_bound":
-        variance = np.ones(gap.shape)
-        interior = d < n
-        variance[interior] = beta.ppf(0.95, d[interior] + 1, n[interior] - d[interior])
+    elif rule == "discordance_bound":
+        variance = discordance_upper_bound(d, n)
     elif rule == "known_variance":
         variance = np.full(gap.shape, discordance - target**2)
     elif rule != "fixed_effect":
@@ -152,6 +235,14 @@ def nested_cell(delta, discordance, target, pilot_n, outer, inner, cap, seed):
             }
             for scope, summary in rates.items():
                 row.update({f"{label}_{scope}_{key}": value for key, value in summary.items()})
+        # A two-sided rejection that points away from the true sign is a type S error.
+        wrong = None
+        if delta != 0:
+            wrong = clustered_rate(
+                (nominal & (np.sign(2 * wins - m) == -np.sign(delta))).mean(axis=(1, 2))
+            )
+        row["nominal_wrong_sign_rate"] = None if wrong is None else wrong["rate"]
+        row["nominal_wrong_sign_mc_se"] = None if wrong is None else wrong["mc_se"]
         rows.append(row)
     return rows
 
@@ -160,7 +251,19 @@ def reference_grid(seed, trials):
     """Exact summation versus independent fixed-N Monte Carlo, including nulls."""
     rows = []
     for scenario_index, (name, q, target) in enumerate(SCENARIOS):
-        sizes = sorted({16, 32, 64, 128, 512, 2048, 8192, required_items(target, q - target**2)})
+        sizes = sorted(
+            {
+                16,
+                32,
+                64,
+                128,
+                512,
+                2048,
+                8192,
+                required_items(target, q - target**2),
+                exact_oracle_items(target, q),
+            }
+        )
         for effect_index, multiplier in enumerate((0, 0.5, 1)):
             delta = target * multiplier
             for n in sizes:
@@ -179,6 +282,7 @@ def reference_grid(seed, trials):
                         "n": n,
                         "exact_power": exact_mcnemar_power(delta, q, n),
                         "exact_bonferroni_power": exact_mcnemar_power(delta, q, n, ALPHA / FAMILY),
+                        "exact_wrong_sign": exact_wrong_sign(delta, q, n),
                         "trials": trials,
                         "detections": successes,
                         "mc_rate": successes / trials,
@@ -278,8 +382,14 @@ def run_benchmark(seed=20261029, outer=1000, inner=32, trials=20000, cap=20000):
             "family_size": FAMILY,
             "pilot_sizes": [32, 128, 512],
             "true_effect_multipliers": [0, 0.5, 1],
+            "rules": list(RULES),
             "scenarios": [
-                {"name": name, "discordance": q, "meaningful_effect": target}
+                {
+                    "name": name,
+                    "discordance": q,
+                    "meaningful_effect": target,
+                    **known_truth_budgets(target, q),
+                }
                 for name, q, target in SCENARIOS
             ],
             "seed_recipe": "reference [seed,0,scenario,effect,n]; nested cell "
@@ -293,28 +403,125 @@ def run_benchmark(seed=20261029, outer=1000, inner=32, trials=20000, cap=20000):
     }
 
 
-def confirmation_sensitivity(summary):
-    """Descriptive multiplicity/effect-size audit of committed repeated-decoding data."""
-    confirmations = [
-        row["confirmation"] for row in summary["pairs"] if row["confirmation"] is not None
-    ]
-    pvalues = [row["pvalue"] for row in confirmations]
-    gaps = np.abs([row["mean_difference"] for row in confirmations])
+def _holm_by_family(pvalues, families):
+    """Holm-adjusted p-values with one complete family per distinct label."""
+    adjusted = np.empty_like(pvalues)
+    for family in np.unique(families):
+        adjusted[families == family] = holm_adjust(pvalues[families == family])
+    return adjusted
+
+
+def confirmation_sensitivity(summary, protocol):
+    """Multiplicity, effect-size and t-reference audit of committed repeated-decoding data.
+
+    Detection is the experiment's prespecified rule: a two-sided paired t-test on
+    item means with p < alpha and no multiplicity correction. The Holm families
+    are post hoc sensitivity definitions; unrun (over-limit) plans enter a planned
+    family with p=1. Plug-in power uses each pilot's own gap and planning
+    variance at the planned item count: it restates the plan's assumptions under
+    the t reference distribution, not the comparison's true power.
+    """
+    alpha = protocol["alpha"]
+    floor = protocol["minimum_confirm_items"]
+    pairs = summary["pairs"]
+    ran = np.array([row["confirmation"] is not None for row in pairs])
+    pvalues = np.array(
+        [row["confirmation"]["pvalue"] if row["confirmation"] else 1.0 for row in pairs]
+    )
+    benchmarks = np.array([row["benchmark"] for row in pairs])
+    adjusted = {
+        "all_planned": _holm_by_family(pvalues, np.zeros(len(pairs))),
+        "per_benchmark": _holm_by_family(pvalues, benchmarks),
+        "executed_only": _holm_by_family(pvalues, np.where(ran, "executed", "unrun")),
+    }
+    z = float(norm.ppf(1 - alpha / 2))
+    rows = []
+    for index, row in enumerate(pairs):
+        confirmation = row["confirmation"]
+        result = {
+            "benchmark": row["benchmark"],
+            "model_a": row["model_a"],
+            "model_b": row["model_b"],
+            "status": row["status"],
+            "pilot_gap": row["pilot"]["mean_difference"],
+            "planned_n_items": row["planned_n_items"],
+            "confirmation_gap": None,
+            "pvalue": None,
+            "detected": None,
+            "same_sign_as_pilot": None,
+            "holm_all_planned_p": float(adjusted["all_planned"][index]),
+            "holm_per_benchmark_p": float(adjusted["per_benchmark"][index]),
+            "holm_executed_only_p": None,
+            "plug_in_normal_power": None,
+            "plug_in_t_power": None,
+        }
+        if confirmation is not None:
+            n = row["planned_n_items"]
+            if confirmation["n_items"] != n:
+                raise ValueError("confirmation item count differs from its plan")
+            gap = row["pilot"]["mean_difference"]
+            noncentrality = abs(gap) / math.sqrt(row["pilot"]["total_variance"] / n)
+            critical = float(t.ppf(1 - alpha / 2, n - 1))
+            result.update(
+                confirmation_gap=confirmation["mean_difference"],
+                pvalue=confirmation["pvalue"],
+                detected=confirmation["detected"],
+                same_sign_as_pilot=bool(np.sign(confirmation["mean_difference"]) == np.sign(gap)),
+                holm_executed_only_p=float(adjusted["executed_only"][index]),
+                plug_in_normal_power=_normal_power(noncentrality, z),
+                plug_in_t_power=float(
+                    nct.sf(critical, n - 1, noncentrality)
+                    + nct.cdf(-critical, n - 1, noncentrality)
+                ),
+            )
+        rows.append(result)
+    tested = [row for row in rows if row["detected"] is not None]
+    gaps = np.abs([row["confirmation_gap"] for row in tested])
+    # Right-closed bins: a 1pp gap belongs to at_most_1pp, a 5pp gap to 1_to_5pp.
+    bins = np.bincount(np.searchsorted([0.01, 0.05, 0.10, 0.20], gaps), minlength=5)
+    above = [row["plug_in_t_power"] for row in tested if row["planned_n_items"] > floor]
+    at_floor = [row["plug_in_t_power"] for row in tested if row["planned_n_items"] == floor]
     return {
         "evidence": "MEAS: committed fresh-item confirmations, not simulation",
-        "tested": len(pvalues),
-        "nominal_detections": int(np.sum(np.array(pvalues) < ALPHA)),
-        "holm_detections": int(np.sum(holm_adjust(pvalues) < ALPHA)),
-        "family": "All executed primary confirmations across both benchmarks; unrun plans "
-        "are not part of this descriptive 27-test sensitivity family.",
+        "detection_rule": "prespecified two-sided paired t-test on item means, p < alpha, "
+        "no multiplicity correction",
+        "alpha": alpha,
+        "planned": len(rows),
+        "tested": len(tested),
+        "unrun": len(rows) - len(tested),
+        "nominal_detections": sum(row["detected"] for row in tested),
+        "detected_with_pilot_sign": sum(
+            row["detected"] and row["same_sign_as_pilot"] for row in tested
+        ),
+        "holm_detections": {
+            key: int(np.sum(values[ran] < alpha)) for key, values in adjusted.items()
+        },
+        "holm_families": {
+            "all_planned": f"one family of all {len(rows)} planned pairs; unrun plans p=1",
+            "per_benchmark": "one family of planned pairs per benchmark; unrun plans p=1",
+            "executed_only": f"one family of the {len(tested)} executed confirmations",
+        },
         "absolute_gap_quantiles": dict(
             zip(
                 ("min", "q25", "median", "q75", "max"),
-                np.quantile(gaps, [0, 0.25, 0.5, 0.75, 1]),
+                (float(value) for value in np.quantile(gaps, [0, 0.25, 0.5, 0.75, 1])),
                 strict=True,
             )
         ),
-        "gaps_at_most_1pp": int(np.sum(gaps <= 0.01)),
-        "n16_comparisons": sum(row["n_items"] == 16 for row in confirmations),
-        "holm_adjusted_pvalues": holm_adjust(pvalues).tolist(),
+        "absolute_gap_bins": dict(
+            zip(
+                ("at_most_1pp", "1_to_5pp", "5_to_10pp", "10_to_20pp", "over_20pp"),
+                (int(count) for count in bins),
+                strict=True,
+            )
+        ),
+        "minimum_confirm_items": floor,
+        "comparisons_at_minimum": len(at_floor),
+        "plug_in_t_power": {
+            "min_above_minimum": min(above),
+            "max_above_minimum": max(above),
+            "min_at_minimum": min(at_floor),
+            "sum_over_tested": math.fsum(row["plug_in_t_power"] for row in tested),
+        },
+        "pairs": rows,
     }

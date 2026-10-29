@@ -26,6 +26,8 @@ Labels: **EXT** = opened external source; **INFERENCE** = derivation or proposal
 
 **EXT** The pilot-effect pitfall itself predates LLM evaluation. Albers and Lakens [9, §§3–8] show how noisy pilot effect estimates and selective follow-up can produce underpowered main studies, and recommend a smallest effect size of interest fixed independently of the pilot. Their full publisher PDF was opened. Kraemer et al. [10] warn against using pilot studies to guide proposal power calculations; publisher and PubMed abstracts/metadata were opened, not the paywalled full text. **INFERENCE** This project measures the size of that known problem for paired LLM benchmarks. Using pilots to estimate variance while fixing a meaningful effect beforehand is the standard alternative, not a newly validated future-power guarantee.
 
+**SIM** The [known-truth calibration](CALIBRATION.md) tests that alternative under the exact McNemar test. Plug-in pilot variance falls short when discordant items are rare or budgets are small; an upper confidence bound on the discordance rate, Browne's pilot-variance idea applied to binary pairs, reached at least 80% nominal power in every simulated design whose pilot could plan within the item cap.
+
 ## 3. Statistical recommendations
 
 **INFERENCE**, following [1,4,5]: align item IDs; define $D_i=X_{Ai}-X_{Bi}$ and $\hat\delta=\bar D$. For independent items,
