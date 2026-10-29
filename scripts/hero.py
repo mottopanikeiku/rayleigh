@@ -7,11 +7,10 @@ from pathlib import Path
 import matplotlib
 
 matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, Rectangle
 
-import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.patches import FancyBboxPatch, Rectangle  # noqa: E402
-
-from eval_power.calibration import POWER, RULE_LABELS, RULES, SCENARIOS  # noqa: E402
+from eval_power.calibration import POWER, RULE_LABELS, RULES, SCENARIOS
 
 NESTED = Path("results/known_truth/nested.csv")
 SENSITIVITY = Path("results/known_truth/confirmation_sensitivity.json")
