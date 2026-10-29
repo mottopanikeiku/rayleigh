@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software or its results, please cite it as below."
+type: software
+title: "rayleigh: calibrated power planning for paired model evaluations"
+abstract: >-
+  Item-count planning for paired comparisons of language models, a known-truth
+  calibration of pilot-based planning rules under the exact McNemar test, and a
+  prospective repeated-decoding experiment on six open models.
+authors:
+  - family-names: Cetin
+    given-names: Alp
+version: 0.2.0
+license: MIT
+repository-code: "https://github.com/mottopanikeiku/rayleigh"
+url: "https://mottopanikeiku.github.io/rayleigh/"
+keywords:
+  - statistical power
+  - sample size
+  - McNemar test
+  - language model evaluation

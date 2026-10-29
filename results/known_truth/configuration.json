@@ -1,0 +1,91 @@
+{
+  "evidence": "SIM: known-truth simulation, not model evaluations",
+  "seed": 20261029,
+  "rng": "NumPy PCG64 via SeedSequence",
+  "outer": 1000,
+  "inner": 32,
+  "reference_trials": 20000,
+  "cap": 20000,
+  "alpha": 0.05,
+  "target_power": 0.8,
+  "family_size": 3,
+  "pilot_sizes": [
+    32,
+    128,
+    512
+  ],
+  "true_effect_multipliers": [
+    0,
+    0.5,
+    1
+  ],
+  "rules": [
+    "observed_gap",
+    "fixed_effect",
+    "discordance_bound",
+    "known_variance",
+    "exact_oracle"
+  ],
+  "scenarios": [
+    {
+      "name": "rare_1pct",
+      "discordance": 0.01,
+      "meaningful_effect": 0.005,
+      "gaussian_known_variance_n": 3132,
+      "gaussian_known_variance_exact_power": 0.7646618079157832,
+      "null_variance_gaussian_n": 3138,
+      "null_variance_gaussian_exact_power": 0.7655936613757215,
+      "exact_oracle_n": 3373,
+      "exact_oracle_exact_power": 0.8000606877353109
+    },
+    {
+      "name": "rare_5pct",
+      "discordance": 0.05,
+      "meaningful_effect": 0.02,
+      "gaussian_known_variance_n": 974,
+      "gaussian_known_variance_exact_power": 0.7731057275848465,
+      "null_variance_gaussian_n": 979,
+      "null_variance_gaussian_exact_power": 0.7754424246360389,
+      "exact_oracle_n": 1035,
+      "exact_oracle_exact_power": 0.8001008261054721
+    },
+    {
+      "name": "close_2pp",
+      "discordance": 0.2,
+      "meaningful_effect": 0.02,
+      "gaussian_known_variance_n": 3917,
+      "gaussian_known_variance_exact_power": 0.7899707456745269,
+      "null_variance_gaussian_n": 3923,
+      "null_variance_gaussian_exact_power": 0.7905919171614373,
+      "exact_oracle_n": 4016,
+      "exact_oracle_exact_power": 0.8000634506125044
+    },
+    {
+      "name": "moderate_10pp",
+      "discordance": 0.5,
+      "meaningful_effect": 0.1,
+      "gaussian_known_variance_n": 385,
+      "gaussian_known_variance_exact_power": 0.7763570116388863,
+      "null_variance_gaussian_n": 391,
+      "null_variance_gaussian_exact_power": 0.7828522362210002,
+      "exact_oracle_n": 408,
+      "exact_oracle_exact_power": 0.8002055299858536
+    },
+    {
+      "name": "small_n",
+      "discordance": 0.8,
+      "meaningful_effect": 0.6,
+      "gaussian_known_variance_n": 10,
+      "gaussian_known_variance_exact_power": 0.47543195899999985,
+      "null_variance_gaussian_n": 15,
+      "null_variance_gaussian_exact_power": 0.728798102229464,
+      "exact_oracle_n": 18,
+      "exact_oracle_exact_power": 0.8257502099181088
+    }
+  ],
+  "seed_recipe": "reference [seed,0,scenario,effect,n]; nested cell SeedSequence([seed,1,scenario,effect,pilot_n]).generate_state(1)[0], then [cell,0] pilots / [cell,rule_index+1] heldout; shared models [seed,2,design,n]",
+  "software": {
+    "numpy": "2.4.6",
+    "scipy": "1.17.1"
+  }
+}
