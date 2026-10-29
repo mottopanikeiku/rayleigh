@@ -1,0 +1,54 @@
+{
+  "evidence": "SIM: known-truth simulation, not model evaluations",
+  "seed": 20261029,
+  "rng": "NumPy PCG64 via SeedSequence",
+  "outer": 1000,
+  "inner": 32,
+  "reference_trials": 20000,
+  "cap": 20000,
+  "alpha": 0.05,
+  "target_power": 0.8,
+  "family_size": 3,
+  "pilot_sizes": [
+    32,
+    128,
+    512
+  ],
+  "true_effect_multipliers": [
+    0,
+    0.5,
+    1
+  ],
+  "scenarios": [
+    {
+      "name": "rare_1pct",
+      "discordance": 0.01,
+      "meaningful_effect": 0.005
+    },
+    {
+      "name": "rare_5pct",
+      "discordance": 0.05,
+      "meaningful_effect": 0.02
+    },
+    {
+      "name": "close_2pp",
+      "discordance": 0.2,
+      "meaningful_effect": 0.02
+    },
+    {
+      "name": "moderate_10pp",
+      "discordance": 0.5,
+      "meaningful_effect": 0.1
+    },
+    {
+      "name": "small_n",
+      "discordance": 0.8,
+      "meaningful_effect": 0.6
+    }
+  ],
+  "seed_recipe": "reference [seed,0,scenario,effect,n]; nested cell SeedSequence([seed,1,scenario,effect,pilot_n]).generate_state(1)[0], then [cell,0] pilots / [cell,rule_index+1] heldout; shared models [seed,2,design,n]",
+  "software": {
+    "numpy": "2.4.6",
+    "scipy": "1.17.1"
+  }
+}

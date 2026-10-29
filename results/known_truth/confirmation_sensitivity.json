@@ -1,0 +1,49 @@
+{
+  "evidence": "MEAS: committed fresh-item confirmations, not simulation",
+  "tested": 27,
+  "nominal_detections": 23,
+  "holm_detections": 18,
+  "family": "All executed primary confirmations across both benchmarks; unrun plans are not part of this descriptive 27-test sensitivity family.",
+  "absolute_gap_quantiles": {
+    "min": 0.0015151515151515152,
+    "q25": 0.11332819722650231,
+    "median": 0.16893203883495145,
+    "q75": 0.4,
+    "max": 0.575
+  },
+  "gaps_at_most_1pp": 1,
+  "n16_comparisons": 9,
+  "holm_adjusted_pvalues": [
+    0.374245171773758,
+    0.21529891295993847,
+    0.01631150241134833,
+    0.1024815273086618,
+    0.040491136138387174,
+    0.002631355584235437,
+    0.00784940498330709,
+    0.040491136138387174,
+    0.000552457886025043,
+    0.0083674519667479,
+    0.0051642652891326375,
+    0.00495797965129241,
+    0.04963711177344608,
+    0.016770130375177817,
+    0.1024815273086618,
+    0.1671156947816485,
+    0.040491136138387174,
+    0.00015697703383828155,
+    0.374245171773758,
+    0.040491136138387174,
+    0.1671156947816485,
+    0.0083674519667479,
+    0.9363670115481904,
+    0.374245171773758,
+    0.0031161643807122953,
+    0.0076557538429943076,
+    0.040491136138387174
+  ],
+  "source": {
+    "file": "results/prospective/summary.json",
+    "sha256": "beeca159d09dd7da6e7f90ebf07161ccab0bf32783350fbb64504fc52e97ccb3"
+  }
+}

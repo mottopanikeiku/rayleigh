@@ -2,9 +2,11 @@
 
 import argparse
 import json
+from pathlib import Path
 
 import numpy as np
 
+from .io import read_paired_csv
 from .stats import (
     clustered_se,
     correlation,
@@ -21,7 +23,7 @@ def main(argv=None) -> int:
     )
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--variance", type=float, help="positive variance of one item difference")
-    source.add_argument("--pilot", help="NumPy .npy array of binary outcomes, shape (n, 2)")
+    source.add_argument("--pilot", help="shared-item CSV or binary NumPy .npy array, shape (n, 2)")
     parser.add_argument("--groups", help="aligned .npy group labels; only with --pilot")
     parser.add_argument("--alpha", type=float, default=0.05)
     parser.add_argument("--power", type=float, default=0.8)
@@ -48,9 +50,14 @@ def main(argv=None) -> int:
                 args.difference, args.variance, args.alpha, args.power
             )
         else:
-            pilot = np.load(args.pilot, allow_pickle=False)
+            if Path(args.pilot).suffix.lower() == ".csv":
+                _, pilot = read_paired_csv(args.pilot)
+            else:
+                pilot = np.load(args.pilot, allow_pickle=False)
             if not isinstance(pilot, np.ndarray) or pilot.ndim != 2 or pilot.shape[1] != 2:
-                raise ValueError("pilot must be a binary .npy array with shape (n, 2)")
+                raise ValueError(
+                    "pilot must be a shared-item CSV or binary .npy array, shape (n, 2)"
+                )
             a, b = pilot[:, 0], pilot[:, 1]
             paired = paired_variance(a, b)
             unpaired = unpaired_variance(a, b)
