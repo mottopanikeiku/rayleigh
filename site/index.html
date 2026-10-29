@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="description" content="Plan an accuracy comparison with a two-sided Gaussian item budget, and check how pilot plans performed on heldout benchmark items.">
-  <title>How many test items? · eval-power</title>
+  <title>How many test items? · rayleigh</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
   <script type="module" src="app.mjs"></script>
@@ -13,7 +13,7 @@
 <body>
 <a class="skip" href="#calculator">Skip to calculator</a>
 <header>
-  <nav aria-label="Project"><a href="https://github.com/mottopanikeiku/eval-power">eval-power / source</a><label class="theme">Theme <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></nav>
+  <nav aria-label="Project"><a href="https://github.com/mottopanikeiku/rayleigh">rayleigh / source</a><label class="theme">Theme <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></nav>
   <p class="eyebrow">Accuracy comparison · item-budget planning</p>
   <h1>How many test items do I need?</h1>
   <p class="intro">I use a two-sided Gaussian approximation to plan a comparison between two models. Choose a meaningful gap before evaluation; an observed pilot gap can give an unreliable budget.</p>
@@ -71,15 +71,15 @@
     <div id="calibration" aria-live="polite" aria-atomic="true"><p>Loading committed results…</p></div>
     <p class="hint">Each benchmark has 40 score-independent model pairs × 5 item splits. Each evaluable plan has 1,000 exact two-sided McNemar trials from the empirical heldout distribution, sampled with replacement. An estimated detection rate is not the true power; Monte Carlo bounds show simulation uncertainty only.</p>
     <p class="hint">These are selected 395-model, 2024 Open LLM Leaderboard data, not current frontier models. Resampling existing items does not establish power on newly collected questions. The 80% target uses alpha 0.05, with no multiple-comparison adjustment.</p>
-    <p class="source-links"><a href="data/calibration.csv">Summary CSV</a> · <a href="data/pilot-summary.json">Counts derived from individual plans</a> · <a href="https://github.com/mottopanikeiku/eval-power/blob/main/results/pilot_plans.csv.gz">Committed individual plans</a> · <a href="https://github.com/mottopanikeiku/eval-power/blob/main/results/configuration.json">Experiment settings</a></p>
+    <p class="source-links"><a href="data/calibration.csv">Summary CSV</a> · <a href="data/pilot-summary.json">Counts derived from individual plans</a> · <a href="https://github.com/mottopanikeiku/rayleigh/blob/main/results/pilot_plans.csv.gz">Committed individual plans</a> · <a href="https://github.com/mottopanikeiku/rayleigh/blob/main/results/configuration.json">Experiment settings</a></p>
   </section>
   <section aria-labelledby="method-title" class="method">
     <h2 id="method-title">What I calculate</h2>
     <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance. Equivalently, subtract twice the covariance from the unpaired variance. I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
-    <p><a href="https://github.com/mottopanikeiku/eval-power/tree/main/site">Source, Python comparison fixture, and tests</a>. The browser and Python item counts must agree within one item on the committed input grid. The formula uses population variance implied by your assumptions, not a fitted sample variance.</p>
+    <p><a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">Source, Python comparison fixture, and tests</a>. The browser and Python item counts must agree within one item on the committed input grid. The formula uses population variance implied by your assumptions, not a fitted sample variance.</p>
   </section>
 </main>
-<footer>Alp Cetin · <a href="https://github.com/mottopanikeiku/eval-power">eval-power</a><br>Written with AI coding assistance.</footer>
+<footer>Alp Cetin · <a href="https://github.com/mottopanikeiku/rayleigh">rayleigh</a><br>Written with AI coding assistance.</footer>
 <noscript><p class="error">This calculator needs JavaScript. The source repository contains a Python command-line planner and the committed calibration results.</p></noscript>
 </body>
 </html>
