@@ -122,10 +122,9 @@ def test_pilot_never_defaults_to_observed_difference(pilot_path, capsys):
         [[0, 2], [1, 0]],
         [[0, np.nan], [1, 0]],
         [[0, 1]],
-        [[0, 0], [1, 1]],
     ],
 )
-def test_cli_refuses_invalid_or_zero_variance_pilots(pilot, tmp_path, capsys):
+def test_cli_refuses_invalid_pilots(pilot, tmp_path, capsys):
     path = tmp_path / "invalid.npy"
     np.save(path, np.asarray(pilot))
     with pytest.raises(SystemExit) as exc:

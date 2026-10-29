@@ -4,6 +4,7 @@ from .io import read_paired_csv
 from .stats import (
     clustered_se,
     correlation,
+    discordance_upper_bound,
     exact_mcnemar_power,
     gaussian_power,
     holm_adjust,
@@ -19,6 +20,7 @@ from .stats import (
 __all__ = [
     "clustered_se",
     "correlation",
+    "discordance_upper_bound",
     "exact_mcnemar_power",
     "gaussian_power",
     "holm_adjust",

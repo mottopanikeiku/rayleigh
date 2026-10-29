@@ -11,9 +11,10 @@ def read_paired_csv(path):
     Required columns are exactly item_id, model_a, model_b, in any order. Each
     nonempty ID occurs once. Both scores must be literal 0 or 1; missing items
     are errors, not silently dropped or joined by row position across files.
+    A UTF-8 byte-order mark, as written by spreadsheet exports, is accepted.
     """
     ids, rows, seen = [], [], set()
-    with open(path, newline="", encoding="utf-8") as stream:
+    with open(path, newline="", encoding="utf-8-sig") as stream:
         reader = csv.DictReader(stream)
         if reader.fieldnames is None or sorted(reader.fieldnames) != [
             "item_id",
@@ -25,10 +26,13 @@ def read_paired_csv(path):
             item_id = row["item_id"]
             if None in row or not item_id or not item_id.strip() or item_id in seen:
                 raise ValueError(
-                    "CSV rows require unique nonempty item_id and exactly three fields"
+                    f"CSV line {reader.line_num}: rows require a unique nonempty item_id "
+                    "and exactly three fields"
                 )
             if any(row[key] not in ("0", "1") for key in ("model_a", "model_b")):
-                raise ValueError("CSV model_a and model_b must both be 0 or 1 on every item")
+                raise ValueError(
+                    f"CSV line {reader.line_num}: model_a and model_b must both be 0 or 1"
+                )
             seen.add(item_id)
             ids.append(item_id)
             rows.append([int(row["model_a"]), int(row["model_b"])])

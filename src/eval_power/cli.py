@@ -10,10 +10,18 @@ from .io import read_paired_csv
 from .stats import (
     clustered_se,
     correlation,
+    discordance_upper_bound,
     paired_variance,
     required_items,
     unpaired_variance,
 )
+
+
+def _plan(variance, args):
+    """Items per model, or None: a zero plug-in variance is undefined, not zero items."""
+    if variance == 0:
+        return None
+    return required_items(args.difference, variance, args.alpha, args.power)
 
 
 def main(argv=None) -> int:
@@ -61,22 +69,26 @@ def main(argv=None) -> int:
             a, b = pilot[:, 0], pilot[:, 1]
             paired = paired_variance(a, b)
             unpaired = unpaired_variance(a, b)
+            discordant = int(np.count_nonzero(a != b))
+            bound = discordance_upper_bound(discordant, len(a))
             result.update(
                 pilot_n=len(a),
+                discordant_items=discordant,
                 paired_variance=paired,
+                discordance_upper_95=bound,
                 unpaired_variance=unpaired,
                 paired_correlation=correlation(a, b),
-                paired_items_per_model=required_items(
-                    args.difference, paired, args.alpha, args.power
-                ),
-                unpaired_items_per_model=required_items(
-                    args.difference, unpaired, args.alpha, args.power
-                ),
+                paired_items_per_model=_plan(paired, args),
+                bound_items_per_model=_plan(bound, args),
+                unpaired_items_per_model=_plan(unpaired, args),
             )
             result["assumptions"].extend(
                 [
                     "Paired planning uses same-item differences "
-                    "and their sample variance (ddof=1).",
+                    "and their sample variance (ddof=1); null if that variance is zero.",
+                    "Bound planning replaces that variance with a one-sided 95% Clopper-Pearson "
+                    "upper bound on P(A != B), which is at least Var(A-B). It ignores the pilot "
+                    "gap and stays finite without discordant items; see docs/CALIBRATION.md.",
                     "Unpaired planning assumes independent model outcomes and binomial marginals.",
                 ]
             )
