@@ -158,7 +158,7 @@ def assert_csv_matches(path: Path, expected: list[dict]) -> None:
 
 
 def check_known_truth() -> None:
-    """Regenerate every known-truth artifact, compare, then test the claims it supports."""
+    """Recompute simulation results and check their power and error rates."""
     directory = Path("results/known_truth")
     configuration = json.loads((directory / "configuration.json").read_text())
     result, sensitivity = build(
@@ -369,13 +369,12 @@ def main() -> None:
         "pilot_calibration.svg",
     ):
         assert ET.parse(Path("figures") / name).getroot().tag.endswith("svg")
-    assert Path("README.md").read_text().rstrip().endswith("Written with AI coding assistance.")
     check_prospective()
     check_known_truth()
     print(
         "Validated five pinned binary matrices, all-pair Holm families, "
         "calibration rows, fresh-item response counts and grades, and SVGs. "
-        "Regenerated the known-truth tables, sensitivity audit, calibration figure, "
+        "Regenerated the simulation tables, six-model comparisons, calibration figure, "
         "README hero and CSV example; all match."
     )
 

@@ -1,67 +1,33 @@
 # rayleigh
 
-How many shared questions do I need to distinguish two models, and which way of choosing that number actually delivers the power it promises?
+How many benchmark items does it take to tell two LLMs apart? [Use the paired sample-size calculator](https://mottopanikeiku.github.io/rayleigh/), or plan from your own pilot with Python.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/hero-dark.svg"><img alt="Simulated rejection rates at a 128-item pilot for five planning rules across five known-truth designs. Planning from the observed pilot gap delivers 15 to 68 percent instead of 80. Fixing the effect and plugging in the pilot variance delivers 47 to 78 percent. Using a 95 percent upper bound on the discordance rate delivers 84 to 95 percent. A Gaussian budget with the true variance delivers 48 to 79 percent; the exact-test oracle delivers 80 to 83 percent. Measured on six open models: 23 of 27 fresh comparisons detected, 17 after Holm over all 30 planned, median realized gap 16.9 points." src="docs/hero-light.svg" width="760"></picture>
+I tested five planning rules in simulations with an 80% power target. With a 128-item pilot, choosing the budget from the observed accuracy gap detected a difference only **15–68% of the time**. Fixing a meaningful gap first and using a 95% upper bound on the discordance rate reached **84–95%**, at **1.2–2.4×** the median budget from the pilot variance.
 
-[Try my power calculator](https://mottopanikeiku.github.io/rayleigh/) · [Calibration methods and every number](docs/CALIBRATION.md) · [Prior work and citations](docs/PRIOR_WORK.md)
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/hero-dark.svg"><img alt="Detection rates for five sample-size rules in paired-evaluation simulations" src="docs/hero-light.svg" width="760"></picture>
 
-I checked five ways of turning a paired pilot into an "80%-power" item count against simulated evaluations where I know the truth. Each rule in each design runs 96,000 exact McNemar tests on fresh simulated items. At a 128-item pilot, **planning from the pilot's observed gap detected the meaningful effect 15–68% of the time**. Fixing the effect in advance and plugging in the pilot variance reached 77–78% when at least 20% of items were discordant, but 72% at 5%, 59% at 1% and 47% for a 10-item design. **Replacing the variance with a 95% upper bound on the discordance rate delivered 84–95% in every design**, at 1.2–2.4 times the median plug-in budget. These are simulations (SIM), not model measurements.
+## Choose the gap before the pilot
 
-## Which planning rule to trust, when
+Use the smallest accuracy difference you care about. Let the pilot estimate how often the models disagree: an item is discordant when exactly one model gets it right.
 
-SIM, from [`results/known_truth/nested.csv`](results/known_truth/nested.csv) at a 128-item pilot unless stated; q is the share of items on which the two models disagree.
-
-| Situation | Plan with | What the simulation shows |
+| Situation | Planning rule | Simulation result at a 128-item pilot |
 |---|---|---|
-| Always | A meaningful effect fixed before the pilot, never the pilot's observed gap | Observed-gap plans detected 15–68%, and still only 46–75% with 512-item pilots. |
-| Discordance common (q ≥ 20%) and budgets of hundreds of items | Plug-in pilot variance (`paired_items_per_model`), expecting 2–3 points below target | 77–78%. Even the true variance gives only 78–79%, because the Gaussian formula is short for the exact test: 4,016 items instead of 3,917 at q=20%, 408 instead of 385 at q=50%. |
-| Discordance rare (q ≤ 5%) | The discordance bound (`bound_items_per_model`) | 95% versus 59–72% for plug-in variance, at 1.9–2.4 times the median budget. With q=1% and a 32-item pilot every bound plan exceeded my 20,000-item cap: the pilot cannot plan. |
-| Budgets under about 30 items | Exact power (`exact_mcnemar_power`), not a Gaussian formula | With q=80% and a 60-point effect, the true-variance Gaussian budget of 10 items has 48% exact power; the exact search needs 18 items. |
-| Several comparisons | A multiplicity-adjusted family | In a three-test Holm family, exact-oracle plans fall from 80–83% to 75–78%. |
+| Disagreement on at least 20% of items, with budgets of hundreds or more | Pilot variance, with the target gap fixed | 77–78% power, slightly below the 80% target |
+| Disagreement on 5% of items or fewer | 95% upper bound on discordance | About 95% power, versus 59–72% with pilot variance |
+| Very small budgets | Check exact McNemar power | One Gaussian plan needed 10 items and had 48% power; the exact calculation needed 18 |
 
-The Gaussian budget uses the alternative variance q − δ² for both quantiles, while McNemar's statistic has null variance q; at 10 items that mismatch accounts for most of the shortfall (15 items with the null variance, 73% power) and discreteness for the rest. Null rows keep every rule at or below the 5% level, because plans never see the heldout data. I describe the design, Monte Carlo errors, type S errors and a shared-model dependence panel in [the calibration methods](docs/CALIBRATION.md).
+The bound buys more room for pilot error. It can also make a study unaffordable: at 1% discordance, every bound plan from a 32-item pilot exceeded the 20,000-item limit. [Simulation methods and full tables](docs/CALIBRATION.md).
 
-![Rejection fraction at the meaningful effect by pilot size, for five planning rules and five designs](figures/known_truth.svg)
+## Plan from your own scores
 
-## The measured experiment, with its multiplicity and effect sizes
-
-I generated **13,830 answers from six small language models** and confirmed planned comparisons on fresh GSM8K and ARC items (MEAS, [`confirmation_sensitivity.json`](results/known_truth/confirmation_sensitivity.json)):
-
-| Count | Detected | Family |
-|---|---:|---|
-| Prespecified nominal tests, p < .05 | **23 / 27** | each executed comparison alone |
-| Holm, all planned pairs | **17** | 30 planned, the 3 unrun plans as p = 1 |
-| Holm, executed only | 18 | 27 executed |
-| Holm, one family per benchmark | 19 | 15 planned per benchmark |
-
-| Realized absolute gap | ≤ 1 pt | 1–5 pts | 5–10 pts | 10–20 pts | > 20 pts |
-|---|---:|---:|---:|---:|---:|
-| Comparisons | 1 | 2 | 3 | 8 | 13 |
-
-The median realized gap is **16.9 points** (quartiles 11.3 and 40.0), and 9 of 27 comparisons used the protocol's 16-item minimum. These confirmations mostly test large separations; they do not validate one-point budgets. The protocol planned from each pilot's observed gap, the rule the simulation says not to trust for close models. Under each plan's own pilot estimates, the item-level t-test has 76–80% power above the 16-item minimum and at least 83% at it; those plug-in powers sum to 22.8 expected detections. All 23 detections have the pilot's sign. The Holm families are post hoc: the protocol prespecified nominal tests.
-
-Each model answered the same 64 pilot questions per benchmark once greedily and five times at temperature 0.7. I used Qwen2.5 1.5B, 3B and 7B, SmolLM2 1.7B, Phi-3.5-mini and Mistral-7B-v0.3: six checkpoints across four families, with revisions and licenses in the [protocol](results/prospective/protocol.json). Qwen's 3B checkpoint has a noncommercial research license.
-
-| Benchmark / decoding task | Median estimated decoding share at k=5 | Median questions for a hypothetical 1-point gap, k=1 → k=5 | Fresh detections |
-|---|---:|---:|---:|
-| GSM8K, free-form numeric answers | 33.2% | 20,147 → 8,743 | 13 / 14 |
-| ARC-Challenge, guided direct choice | 4.6% | 11,371 → 10,864 | 10 / 13 |
-
-I report [every pair, variance estimate, question count, p-value and interval](results/prospective/summary.json). The one-point counts assume a two-sided 5% test and an 80% normal-approximation target. I describe the variance calculation, pilot changes and collection costs in [the methods](docs/PRIOR_WORK.md#5-repeated-answers-and-preference-votes).
-
-![Pilot variance decomposition and fresh-item paired intervals](figures/prospective.svg)
-
-## Plan your own comparison
-
-Put one row per shared item in a CSV with exactly the columns `item_id`, `model_a` and `model_b`; scores are 0 or 1. Items are matched by ID within one table, never by row position across files, and duplicate IDs, blanks or non-binary scores are errors. The example is the GSM8K pilot for Qwen2.5-7B (A) and Phi-3.5-mini (B), greedy answers, from this repository's committed outputs.
+The CSV needs one row per shared item and the columns `item_id`, `model_a`, `model_b`. Scores must be 0 or 1, and item IDs must be unique. The example contains 64 GSM8K questions answered greedily by Qwen2.5-7B and Phi-3.5-mini.
 
 ```bash
 uv sync --locked
 uv run rayleigh --difference 0.05 --pilot examples/gsm8k_qwen7_phi35_pilot.csv
 ```
 
-The JSON output lists its assumptions; the planning lines are:
+`--difference 0.05` means a five-percentage-point gap. The JSON output includes:
 
 ```text
 "pilot_n": 64,
@@ -71,7 +37,18 @@ The JSON output lists its assumptions; the planning lines are:
 "unpaired_items_per_model": 611
 ```
 
-The same plan from Python, with an exact-power check at the pilot's discordance rate ([`examples/plan_from_pilot.py`](examples/plan_from_pilot.py)):
+Use the same planner from Python:
+
+```python
+from eval_power import discordance_upper_bound, read_paired_csv, required_items
+
+item_ids, scores = read_paired_csv("examples/gsm8k_qwen7_phi35_pilot.csv")
+discordant = int((scores[:, 0] != scores[:, 1]).sum())
+variance_bound = discordance_upper_bound(discordant, len(item_ids))
+n = required_items(0.05, variance_bound)  # 787 shared items
+```
+
+[The longer example](examples/plan_from_pilot.py) compares both budgets and checks their exact power at the pilot's estimated discordance:
 
 ```text
 $ uv run python examples/plan_from_pilot.py
@@ -81,40 +58,40 @@ exact power at q=0.156, 5-point gap, plug-in budget of 496: 0.781
 exact power at q=0.156, 5-point gap, bound budget of 787: 0.939
 ```
 
-The installable distribution is `eval-power` and the import package is `eval_power`; the command is `rayleigh` (`eval-power` also works). The PyPI name `rayleigh` belongs to an unrelated project, so install from this repository: `pip install git+https://github.com/mottopanikeiku/rayleigh`. The [calculator](https://mottopanikeiku.github.io/rayleigh/) implements the same Gaussian planner in the browser.
+The Python import is `eval_power`; the command is `rayleigh`. Install from this checkout: the PyPI package named `rayleigh` is unrelated. The browser calculator uses the Gaussian planner with a supplied variance. The Python API and CLI add the pilot-based discordance bound; `exact_mcnemar_power` is available in the Python API.
 
-## Human preferences: adjacent ranks are usually unresolved
+## How the simulation works
 
-I also analyzed a [historical Arena vote release](data/arena_manifest.json). After an exposure filter, 54,985 votes cover 55 models. Only **4/54 adjacent contrasts** exclude zero under either pointwise Wald or bootstrap 95% intervals. Their median fitted 80%-power requirement is **3.30 million total network votes**, not direct-match votes.
+For each design, I set the true accuracy gap and the fraction of discordant items. Each pilot chooses a budget, then a separate sample of binary outcomes gets an exact two-sided McNemar test at alpha 0.05. Five designs cover discordance from 1% to 80%, with pilot sizes of 32, 128 and 512.
 
-![Historical Arena rank uncertainty and held-out planning](figures/arena_votes.svg)
+Each rule runs 96,000 tests per design, effect and pilot size: 1,000 pilot families, three comparisons per family, and 32 evaluation samples per pilot. Undefined plans and budgets above 20,000 items count as failures to detect a difference. The simulation also checks zero effects, wrong-sign detections and Holm correction across three comparisons.
 
-For 12 score-independent planning pairs, 200 resamples each from disjoint held-out vote counts produced a median rejection fraction of 96.25%, ranging from 9% to 100%. I report [all pairs and assumptions](results/arena/summary.json).
+The [full results](results/known_truth/nested.csv) include detection rates, item counts and Monte Carlo intervals. [Prior work](docs/PRIOR_WORK.md) covers paired power analysis and the older statistical problem of planning from a noisy pilot effect.
 
-## Reproduce
+## Tests on six small models
 
-I analyze the saved outputs without model downloads. `check_results.py` regenerates the known-truth benchmark and requires every table, the calibration figure, the hero and the CSV example to match the committed files.
+I generated 13,830 answers from Qwen2.5 1.5B, 3B and 7B, SmolLM2 1.7B, Phi-3.5-mini and Mistral-7B-v0.3 on GSM8K and ARC-Challenge. Each model answered 64 pilot questions per benchmark once greedily and five times at temperature 0.7. The pilots set the budgets for comparisons on new questions.
+
+**23 of 27 comparisons detected a difference** with paired t-tests on five-answer item means. That falls to **17** after Holm correction across all 30 planned comparisons, including three above the collection limit. The median measured gap was **16.9 percentage points**. [Per-pair results](results/prospective/summary.json) and [effect sizes and adjusted tests](results/known_truth/confirmation_sensitivity.json).
+
+![Pilot variance and paired accuracy differences on new questions](figures/prospective.svg)
+
+The repository also includes an analysis of 54,985 historical Arena votes. Only 4 of 54 adjacent model pairs had 95% intervals excluding zero. [Preference-vote methods and results](docs/PRIOR_WORK.md#preference-votes).
+
+## Run the checks
 
 ```bash
-uv sync --locked
-uv run python scripts/calibrate.py
-uv run python scripts/hero.py
-uv run python scripts/prospective_analysis.py
-uv run python scripts/arena.py --bootstrap 500 --trials 200
-uv run python scripts/check_results.py
-uv run pytest
+uv run pytest -q tests site/test_fixture.py
+uv run python site/export_fixture.py --check
+node --test site/*.test.mjs
+node site/build.mjs
 ```
 
-To cite this work, use [`CITATION.cff`](CITATION.cff); changes are in the [changelog](CHANGELOG.md).
+CI also runs `scripts/check_results.py`, which recomputes the simulation tables and checks saved responses, figures and examples. [Release notes](CHANGELOG.md) · [Citation](CITATION.cff).
 
-## Limits
+## Limitations
 
-- The calibration is a simulation of IID binary items, the exact McNemar test and three-pair families of independent pairs. It does not calibrate the repeated-decoding t-test, clustered items, prompt variation, adaptive stopping or model selection. One shared-model panel checks familywise error at fixed sizes only.
-- The discordance bound is conservative, not optimal: with 512-item pilots it delivered 81–96% at up to twice the plug-in budget, and it plans for nominal, not familywise, power.
-- The one-point budgets are hypothetical, not tested one-point effects. Here k=1 means one stochastic draw, not greedy decoding. Fewer questions with k=5 does not imply fewer generated answers or lower GPU cost.
-- These are small instruction-tuned models on public benchmarks, so contamination is possible. A 64-question pilot can misestimate effects and variance components. I changed grading and ARC generation before confirmation; ARC uses guided direct choice, not conventional option-likelihood evaluation.
-- Comparisons sharing a model reuse answers. The protocol prespecified no multiplicity correction; the Holm counts above are post hoc sensitivity analyses. I left plans above the 512-question collection limit unrun.
-- Arena results are historical resamples, not newly collected votes or a current leaderboard. Its IID, transitive Bradley–Terry model cannot recover unavailable user/prompt clustering; adjacent intervals are neither simultaneous nor selection-adjusted.
-- My [earlier single-answer analysis](results/calibration.csv) and calculator remain separate from the repeated-decoding experiment.
-
-Written with AI coding assistance.
+- The simulation assumes independent binary items. Clustered questions, prompt changes, repeated decoding and adaptive stopping need their own power analysis.
+- The bound targets one comparison at a time. Plan for the full family when testing several pairs; multiplicity correction reduces power.
+- The six-model experiment mostly tested large gaps. It used observed-gap planning and paired t-tests, so its detections do not validate one-point budgets or the discordance-bound rule.
+- Public benchmarks may contain training data. ARC uses guided answer-choice generation; GSM8K uses final-number extraction. The [collection details](docs/PRIOR_WORK.md#repeated-answers) explain the grading and seed fixes made before confirmation.

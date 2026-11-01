@@ -1,4 +1,4 @@
-"""Regenerate the known-truth planning benchmark; CPU-only, no downloads."""
+"""Regenerate the paired-planning simulation; CPU-only, no downloads."""
 
 import argparse
 import hashlib
@@ -27,7 +27,7 @@ COLORS = dict(zip(RULES, ["#a14c40", "#397698", "#478361", "#8a6d2f", "#555555"]
 
 
 def build(seed, outer, inner, trials, cap):
-    """Simulation tables plus the measured sensitivity audit, with source hashes."""
+    """Build simulation tables and six-model comparisons with source hashes."""
     result = run_benchmark(seed, outer, inner, trials, cap)
     result["configuration"]["software"] = {"numpy": np.__version__, "scipy": scipy.__version__}
     sensitivity = confirmation_sensitivity(
@@ -78,13 +78,13 @@ def make_figure(rows, destination):
     handles, labels = axes[0].get_legend_handles_labels()
     figure.legend(handles, labels, loc="outside lower center", ncols=len(RULES), fontsize=9)
     figure.suptitle(
-        "SIM: does an 80%-power plan deliver 80%? Exact McNemar test, nominal alpha=.05\n"
+        "Simulated detection rates for an 80%-power budget; exact McNemar test, alpha=.05\n"
         "Unrun plans count as no detection; 95% Monte Carlo intervals cluster by pilot. "
-        "Dotted rules know the true discordance q."
+        "Dotted rules use the true discordance q."
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(
-        destination, metadata={"Date": None, "Title": "rayleigh: known-truth planning calibration"}
+        destination, metadata={"Date": None, "Title": "rayleigh: paired-planning simulation"}
     )
     plt.close(figure)
 
@@ -113,12 +113,12 @@ def main():
     make_figure(result["nested"], args.figure)
     holm = sensitivity["holm_detections"]
     print(
-        f"SIM: {len(result['reference'])} exact-reference rows, "
+        f"Simulation: {len(result['reference'])} exact-reference rows, "
         f"{len(result['nested'])} nested planning rows, "
         f"{len(result['shared_models'])} shared-model family rows; seed={args.seed}."
     )
     print(
-        f"MEAS: {sensitivity['nominal_detections']}/{sensitivity['tested']} nominal; Holm "
+        f"Six models: {sensitivity['nominal_detections']}/{sensitivity['tested']} nominal; Holm "
         f"{holm['all_planned']} (all {sensitivity['planned']} planned), "
         f"{holm['executed_only']} (executed only), {holm['per_benchmark']} (per benchmark); "
         "median absolute realized gap="

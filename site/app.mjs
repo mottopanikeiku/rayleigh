@@ -68,20 +68,20 @@ function renderCalibration() {
   const pilot = number('pilot');
   const row = calibration.find((r) => r.benchmark === benchmark && Number(r.pilot_n) === pilot);
   const counts = pilotSummary.rows.find((r) => r.benchmark === benchmark && r.pilot_n === pilot);
-  if (!row || !counts) throw new Error('No committed results for this benchmark and pilot.');
+  if (!row || !counts) throw new Error('No results for this benchmark and pilot size.');
   const below = Number(row.iid_below_target_95mc_fraction);
   const above = Number(row.iid_above_target_95mc_fraction);
   const uncertain = Math.max(0, 1 - below - above);
-  // All interpolated values are numbers from local committed data.
+  // Interpolated values are numeric fields from local result files.
   element('calibration').innerHTML = `
     <div class="metrics">
-      <div class="metric"><h3>Estimated power ≥ 80%</h3><strong>${percent(counts.reached / counts.evaluated)}</strong><p>${counts.reached} of ${counts.evaluated} evaluable plans reached the target in the simulation.</p></div>
+      <div class="metric"><h3>Plans reaching 80% power</h3><strong>${percent(counts.reached / counts.evaluated)}</strong><p>${counts.reached} of ${counts.evaluated} plans had an estimated detection rate of at least 80%.</p></div>
       <div class="metric"><h3>Median detection rate</h3><strong>${percent(Number(row.iid_power_median))}</strong><p>Middle half: ${percent(Number(row.iid_power_q25))}–${percent(Number(row.iid_power_q75))}.</p></div>
       <div class="metric"><h3>Clearly below target</h3><strong>${percent(below)}</strong><p>The upper 95% Monte Carlo bound was below 80%.</p></div>
     </div>
-    <p><strong>${counts.evaluated} of ${counts.total} plans were evaluable.</strong> ${counts.total - counts.evaluated} had zero pilot gap or variance and are excluded, not counted as successes.</p>
+    <p>${counts.evaluated} of ${counts.total} plans could be evaluated. The other ${counts.total - counts.evaluated} had zero pilot gap or variance and are excluded.</p>
     <div class="bar" aria-hidden="true"><span class="below" style="width:${100 * below}%"></span><span class="uncertain" style="width:${100 * uncertain}%"></span><span class="above" style="width:${100 * above}%"></span></div>
-    <p class="hint">95% Monte Carlo bounds: ${percent(below)} below target · ${percent(uncertain)} include target · ${percent(above)} above target. These categories are stricter than comparing the point estimate to 80%.</p>`;
+    <p class="hint">95% Monte Carlo intervals: ${percent(below)} below 80% · ${percent(uncertain)} include 80% · ${percent(above)} above 80%. The bar uses intervals; the first count uses estimated detection rates.</p>`;
 }
 for (const id of ['benchmark', 'pilot']) element(id).addEventListener('change', renderCalibration);
 
@@ -92,6 +92,6 @@ try {
   pilotSummary = await responses[1].json();
   renderCalibration();
 } catch (error) {
-  element('calibration').textContent = `Committed calibration results are unavailable: ${error.message} Use the source links below.`;
+  element('calibration').textContent = `Could not load benchmark results: ${error.message} The data links below are still available.`;
   element('calibration').classList.add('error');
 }

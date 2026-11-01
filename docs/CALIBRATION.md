@@ -1,88 +1,107 @@
-# Known-truth planning calibration
+# Planning a paired evaluation
 
-This benchmark is **SIM: simulation**, not newly collected model evidence. It asks whether a nominal 80%-power budget delivers 80% rejection under the exact two-sided McNemar test when I know the truth. The repeated-decoding experiment uses paired t-tests on item means; this binary simulation does **not** calibrate that experiment's t-test. I report a separate plug-in t-power audit of those plans below, labelled as such.
+A pilot can give a precise-looking item count and still leave the evaluation underpowered. I compared five sample-size rules in binary-outcome simulations, using an exact two-sided McNemar test to measure how often each rule detected the target gap.
 
-## Reproduce
+## Results at a 128-item pilot
 
-From a checkout with `uv sync --locked` completed:
+Here q is the fraction of items on which exactly one model is correct. Every rule targets 80% power at alpha 0.05. Rates include plans that could not run: an undefined budget or one above 20,000 items counts as no detection.
 
-```bash
-OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 uv run python scripts/calibrate.py
-uv run python scripts/hero.py
-uv run python scripts/check_results.py
-```
-
-The first command needs no downloads or model inference. It writes `results/known_truth/{configuration.json,reference.csv,nested.csv,shared_models.csv,confirmation_sensitivity.json}` and `figures/known_truth.svg`; the second draws the README hero from those files. The root seed is **20261029**, with NumPy PCG64 and the complete substream recipe in `configuration.json`. Defaults are 1,000 outer pilot families, 32 independent heldout families per pilot family, and 20,000 replicates per fixed-N reference or shared-model cell. Each nested family contains three independently generated model pairs, so each rule in each cell runs 96,000 tests. No timing claim is made.
-
-`check_results.py`, which CI runs on x86-64 and arm64, regenerates every table and JSON document and compares them with the committed files (floats to a relative 1e-12, everything else exactly). It requires the regenerated calibration figure, both hero SVGs and the CSV example to match byte for byte. It then checks the claims the tables support: every null row at or below the 5% level within four Monte Carlo standard errors, Holm never above nominal, every plan accounted for, each Monte Carlo reference rate within 4.5 binomial standard errors of its exact value, the exact oracle's simulated rate within 4.5 standard errors of its exact power, and Holm familywise error at or below 5% in the shared-model panel.
-
-## Known truth and reference
-
-For binary outcomes A and B, let delta = E[A-B] and q = P[A != B]. The four cell probabilities, ordered 00, 01, 10, 11, are `(1-q)/2, (q-delta)/2, (q+delta)/2, (1-q)/2`. Thus Var(A-B) = q - delta². The grid includes q = 1%, 5%, 20%, 50%, 80%; meaningful effects are respectively 0.5, 2, 2, 10, 60 percentage points. Each is evaluated at true effects zero, half the meaningful effect, and the meaningful effect, with pilot sizes 32, 128, 512.
-
-`exact_mcnemar_power(delta, discordance, n, alpha)` sums over **all** discordance counts M ~ Binomial(n,q). Conditional on M=m, the A-only count follows Binomial(m,(q+delta)/(2q)). The rejection region is exactly the two-sided conditional McNemar region, not a chi-squared or normal approximation, and a p-value equal to alpha rejects. The reference has no Monte Carlo error. Tests independently enumerate win/loss/concordance cells with integer binomial null probabilities, including equality at a discrete threshold, zero discordance, sign symmetry, and all-one-direction discordance.
-
-`reference.csv` compares this reference with fixed-N Monte Carlo at N=16 to 8,192, the known-variance Gaussian budget and the exact oracle budget. Its Bonferroni column uses alpha/3; it is **not** exact Holm power. `exact_wrong_sign` is the exact probability of rejecting with the wrong sign (a type S error); it peaks at 0.79% (q=20%, half effect, N=64), where power is only 2.7%.
-
-## Five planning rules
-
-All rules plan for **nominal**, not familywise, 80% power at alpha=.05:
-
-- **observed_gap:** Gaussian budget using the absolute pilot gap and unbiased sample variance. This is the noisy-gap diagnostic, not a recommended way to choose a meaningful effect.
-- **fixed_effect:** prespecified meaningful effect, with unbiased sample Var(A-B) from the pilot. The observed gap enters only the variance calculation.
-- **discordance_bound:** prespecified effect, with a one-sided 95% Clopper–Pearson upper bound on q as the planning variance (`discordance_upper_bound`). Since Var(A-B) <= q, this deliberately conservative rule uses only the pilot's discordance count, not its signed gap, and still plans when the pilot has no discordant items. It is Browne's upper-confidence-limit idea [1] applied to a binary paired variance. The bound does not make the Gaussian approximation exact and is not a familywise guarantee. The CLI reports it as `bound_items_per_model`.
-- **known_variance:** oracle comparator using the true q - target² in the same Gaussian formula. Under a null or half-effect DGP it still plans for the meaningful effect, not for the realized truth.
-- **exact_oracle:** the smallest N whose exact McNemar power at the true q and the meaningful effect reaches 80%. It isolates pilot noise and Gaussian approximation from the simulation machinery: its simulated rates (79.8–82.8%) reproduce its exact power (80.0–82.6%).
-
-A zero-gap or zero-variance plug-in plan is undefined, not a zero-item study. Budgets above 20,000 are unrun, not truncated. Each result records undefined, over-cap and executed counts, budget quantiles among defined plans, and mean executed cost. Workflow rejection counts unrun plans as no rejection. Conditional rejection is restricted to executed plans and can look much better; both denominators are explicit. Unrun comparisons retain p=1 in the complete three-test Holm family. `nominal_wrong_sign_rate` counts rejections whose sign opposes the true effect; its largest value is 0.48% (q=20%, half effect, observed-gap rule, 32-item pilot), so two-sided rejection rates are not inflated by sign errors in this grid.
-
-Within each outer replicate, a new pilot determines each budget, then 32 independent heldout families are drawn without reusing pilot observations. Monte Carlo SEs and approximate 95% intervals use the **outer replicate as the cluster**, including a ratio-of-means delta method for conditional rates. The inner trials are not treated as independent pilots. Zero-event normal intervals can collapse; fixed-N and shared-model rates use Wilson intervals instead. These are pointwise Monte Carlo intervals, not simultaneous guarantees across the grid. Rules share each cell's pilots but use separate heldout streams.
-
-## What the recorded simulation says
-
-At pilot N=128 and the meaningful effect, nominal workflow rejection fractions are:
-
-| DGP | Observed gap | Fixed effect | Discordance bound | Known variance | Exact oracle |
+| Discordance and target gap | Observed pilot gap | Fixed gap, pilot variance | Discordance bound | True variance, Gaussian | Exact test, true q |
 |---|---:|---:|---:|---:|---:|
-| q=1%, effect=0.5pp | 14.7% | 59.4% | 95.4% | 76.5% | 80.1% |
-| q=5%, effect=2pp | 53.5% | 71.8% | 94.6% | 77.2% | 79.8% |
-| q=20%, effect=2pp | 33.3% | 77.8% | 88.4% | 79.2% | 80.1% |
-| q=50%, effect=10pp | 67.5% | 77.2% | 83.6% | 77.8% | 79.9% |
-| q=80%, effect=60pp | 47.0% | 46.5% | 86.1% | 47.7% | 82.5% |
+| q=1%, gap=0.5 points | 14.7% | 59.4% | 95.4% | 76.5% | 80.1% |
+| q=5%, gap=2 points | 53.5% | 71.8% | 94.6% | 77.2% | 79.8% |
+| q=20%, gap=2 points | 33.3% | 77.8% | 88.4% | 79.2% | 80.1% |
+| q=50%, gap=10 points | 67.5% | 77.2% | 83.6% | 77.8% | 79.9% |
+| q=80%, gap=60 points | 47.0% | 46.5% | 86.1% | 47.7% | 82.5% |
 
-These percentages are SIM, from `nested.csv`; the complete file includes intervals, null controls, half effects, pilot sizes 32 and 512 and Holm sensitivity. For the q=20%, effect=2pp fixed-effect rule, the nominal estimate is **77.8% [77.4%, 78.2%]**, versus **72.4%** after Holm. For q=1%, the fixed-effect conditional rate is 80.4%, but **785/3,000 plans are undefined** because their pilots had no discordant items; its workflow rate is only 59.4%. The bound rule's median defined budget there is 11,467 versus 4,867 for the plug-in rule, and 129/3,000 bound plans exceed the cap, so the extra detections are not free. With a 32-item pilot at q=1%, every bound plan exceeds 20,000 items and the rule detects nothing: a pilot that small cannot plan a 0.5-point comparison.
+Source: [`nested.csv`](../results/known_truth/nested.csv). The file also includes 32- and 512-item pilots, zero and half-target effects, item counts, Monte Carlo intervals and Holm-adjusted results.
 
-Pilot size matters less than the rule. With 512-item pilots, observed-gap plans still detect only 45.6–74.6%; plug-in variance approaches the known-variance Gaussian rate (69.8–78.7%, 47.9% for q=80%); the bound delivers 81.3–95.5% at 1.1–2.1 times the plug-in median budget.
+Fix the target gap before looking at the pilot. Pilot variance comes close to the power target when disagreement is common and the budget is large. For rare disagreement, the upper bound on discordance buys substantially more power at a larger item count.
 
-### Where the Gaussian budget loses power, even with the true variance
+At q=1%, 785 of 3,000 fixed-gap plans had no discordant pilot items and therefore no variance estimate usable by the planner. Their overall detection rate was 59.4%, even though the plans that ran reached 80.4%. The bound's median budget was 11,467 items, versus 4,867 for the pilot-variance rule; 129 bound plans exceeded the cap. With a 32-item pilot, every bound plan in this design exceeded 20,000 items.
 
-`configuration.json` records three known-q budgets per design and their exact power. The Gaussian formula uses q − δ² for both normal quantiles; the McNemar statistic's null variance is q. Using q for the alpha quantile and q − δ² for the power quantile gives the null-variance budget.
+Larger pilots did not fix observed-gap planning. At 512 items, that rule still detected only 45.6–74.6% of target effects. The bound reached 81.3–95.5%, at 1.1–2.1 times the median pilot-variance budget.
 
-| DGP | Gaussian, true variance | Null-variance Gaussian | Exact oracle |
+![Detection rate by pilot size and planning rule](../figures/known_truth.svg)
+
+## Simulation design
+
+For binary outcomes A and B, define δ = E[A−B] and q = P(A≠B). The probabilities of the four outcomes 00, 01, 10 and 11 are:
+
+$$
+(1-q)/2,\quad (q-\delta)/2,\quad (q+\delta)/2,\quad (1-q)/2.
+$$
+
+This gives Var(A−B) = q−δ². The five designs use the q and target-gap combinations in the table. Each runs at a true effect of zero, half the target and the target, with pilot sizes 32, 128 and 512.
+
+Each of 1,000 outer repetitions draws pilots for three independent model pairs. Each pilot chooses a budget, then 32 independent evaluation samples test that budget. That gives 96,000 tests per rule, design, effect and pilot size. Rules share pilots and use separate evaluation streams. The random seed is 20261029, using NumPy PCG64; [`configuration.json`](../results/known_truth/configuration.json) contains the settings and seed derivation.
+
+### Planning rules
+
+| Result-file name | Budget calculation |
+|---|---|
+| `observed_gap` | Gaussian planner using the absolute pilot gap and unbiased sample variance |
+| `fixed_effect` | Gaussian planner using the fixed target gap and pilot variance |
+| `discordance_bound` | Fixed target gap and a one-sided 95% Clopper–Pearson upper bound on q, used as the variance |
+| `known_variance` | Fixed target gap and true variance q−target² in the Gaussian planner |
+| `exact_oracle` | Smallest item count whose exact McNemar power reaches 80% at the true q and target gap |
+
+The discordance bound uses Var(A−B) ≤ q. It needs only the pilot's discordance count and remains defined when that count is zero. This applies Browne's upper-confidence-limit approach to pilot variance [1] to binary pairs. The CLI calls the resulting budget `bound_items_per_model`.
+
+Zero-gap and zero-variance plug-in plans are undefined. Budgets above 20,000 are left unrun. The results give both overall detection rates and rates conditional on running a plan, plus counts for each status. Unrun comparisons receive p=1 in the three-test Holm family.
+
+Monte Carlo standard errors and approximate 95% intervals cluster by outer repetition, since 32 evaluation samples share each pilot. Conditional rates use a ratio-of-means delta method. Fixed-size and shared-model simulations use Wilson intervals. These intervals measure simulation uncertainty.
+
+### Exact power
+
+`exact_mcnemar_power(delta, discordance, n, alpha)` averages over the discordance count M ∼ Binomial(n,q). Conditional on M=m, the number of A-only successes follows Binomial(m,(q+δ)/(2q)). It sums the probability of the exact two-sided McNemar rejection region, including p-values equal to alpha.
+
+[`reference.csv`](../results/known_truth/reference.csv) compares this calculation with 20,000 simulated evaluations at each fixed size. Its Bonferroni column uses alpha/3. The exact wrong-sign detection probability peaks at 0.79% in the reference grid, where total power is 2.7%.
+
+## Why Gaussian budgets can fall short
+
+The Gaussian planner uses q−δ² for both normal quantiles. McNemar's null variance is q. Using q for the alpha quantile and q−δ² for the power quantile gives the middle column below; this is a direct normal-approximation calculation. Connor [2] studies the related gap between approximate and exact paired-proportion power.
+
+| Discordance and target gap | Gaussian, true variance | Null-variance Gaussian | Exact test, true q |
 |---|---:|---:|---:|
-| q=1%, effect=0.5pp | 3,132 items, 76.5% | 3,138, 76.6% | 3,373, 80.0% |
-| q=5%, effect=2pp | 974, 77.3% | 979, 77.5% | 1,035, 80.0% |
-| q=20%, effect=2pp | 3,917, 79.0% | 3,923, 79.1% | 4,016, 80.0% |
-| q=50%, effect=10pp | 385, 77.6% | 391, 78.3% | 408, 80.0% |
-| q=80%, effect=60pp | 10, 47.5% | 15, 72.9% | 18, 82.6% |
+| q=1%, gap=0.5 points | 3,132 items; 76.5% | 3,138; 76.6% | 3,373; 80.0% |
+| q=5%, gap=2 points | 974; 77.3% | 979; 77.5% | 1,035; 80.0% |
+| q=20%, gap=2 points | 3,917; 79.0% | 3,923; 79.1% | 4,016; 80.0% |
+| q=50%, gap=10 points | 385; 77.6% | 391; 78.3% | 408; 80.0% |
+| q=80%, gap=60 points | 10; 47.5% | 15; 72.9% | 18; 82.6% |
 
-For large budgets the null variance barely matters and the exact test's discreteness and conservatism cost 1–3.5 points, recovered by 2.5–8% more items. For the 10-item design the variance mismatch accounts for most of the shortfall and discreteness for the rest. Exact power is sawtoothed in N, so a slightly larger N than the exact oracle can fall back below 80%; check neighbours with `exact_mcnemar_power` when a budget is small.
+At large budgets, the exact test's discreteness costs about 1–3.5 percentage points of power. At ten items, the variance mismatch accounts for most of the shortfall. Exact power can fall when n increases by one, so check nearby budgets with `exact_mcnemar_power` when planning a small study.
 
-## Type-I error and dependent comparisons
+## Several comparisons
 
-Null rows in `reference.csv` and `nested.csv` report type-I behavior. Every rule stays at or below the nominal level: the largest null workflow rate is 4.69% [4.56%, 4.82%] (q=20%, fixed effect, 32-item pilot), because a plan never sees its heldout data. Three independent nominal tests reach a familywise rate of 13.4% there; Holm keeps every null family at or below 4.8%.
+Every rule kept its null detection rate below 5% in the simulation. The largest was 4.69% with a 95% Monte Carlo interval of 4.56–4.82%. Across three independent null comparisons, the chance of at least one false positive reached 13.4%; Holm kept it below 4.8%.
 
-The nested comparisons are independent across pairs. A separate panel (`shared_models.csv`) tests all three pairs of three models on the **same items**: a latent easy/hard item has probability 1/2 each and model correctness probabilities .8/.2 conditional on difficulty. A mixed family offsets one model by .1, leaving one true-null pair. Joint eight-cell multinomial sampling preserves the shared-model/item dependence. At N=1,024 under the global null, the shared-model familywise false-positive fraction is **11.0% [10.6%, 11.4%] nominal** versus **3.77% [3.51%, 4.04%] Holm** (SIM). This is one controlled dependence structure at fixed sizes, not coverage of clustered prompts, repeated decodes, distribution shift, model selection, or adaptive stopping. IID items and a prespecified family are still assumptions.
+The bound and other planners target one comparison at a time. For q=20%, a two-point gap and a 128-item pilot, fixed-gap planning detected 77.8% of effects before correction and 72.4% after Holm.
 
-## Measured confirmation sensitivity, kept separate
+A separate simulation in [`shared_models.csv`](../results/known_truth/shared_models.csv) tests three pairs sharing three models and the same items. Half the items are easy and half hard, with conditional correctness probabilities 0.8 and 0.2. A second design raises one model's probabilities by 0.1. At 1,024 items under the global null, the chance of any false positive was 11.0% before correction and 3.77% after Holm.
 
-`confirmation_sensitivity.json` is **MEAS**, computed from the committed repeated-decoding `results/prospective/summary.json` and `protocol.json`, with both source hashes, and one row per planned pair. Detection is the protocol's prespecified rule: a two-sided paired t-test on item means, p < .05, no multiplicity correction. **23 of 27** executed confirmations are detected, all with the pilot's sign. Holm adjustment is a post hoc sensitivity analysis, so I report three families: **17** detections with all 30 planned pairs in one family and the three unrun plans as p=1, which is how the simulation treats unrun plans; 18 with the 27 executed tests alone; 19 with one 15-pair family per benchmark.
+## Six-model experiment
 
-The realized absolute gaps are **0.15pp minimum, 11.3pp lower quartile, 16.9pp median, 40.0pp upper quartile, 57.5pp maximum**. One comparison is at most 1pp, two are 1–5pp, three 5–10pp, eight 10–20pp and thirteen above 20pp; nine use the protocol's 16-item minimum. This is mostly evidence about large separations, not prospective validation of hypothetical one-point budgets.
+The [repeated-answer experiment](PRIOR_WORK.md#repeated-answers) used paired t-tests on item means. Of 27 comparisons run on new questions, 23 detected a difference at p<0.05, all in the direction seen in the pilot. Three more plans exceeded the collection limit. Applying Holm afterwards gives 17 detections across all 30 planned comparisons, 18 across the 27 run, or 19 with a separate 15-pair family for each benchmark.
 
-The protocol planned from each pilot's observed gap, the rule the simulation warns against for close models. As a check on the normal-versus-t mismatch, I recomputed each plan's power under its own pilot gap and planning variance with the t reference distribution (n−1 degrees of freedom): 76.4–79.8% for the 18 plans above the minimum and at least 83.0% for the nine at it, summing to 22.8 expected detections. These plug-in powers restate each plan's assumptions; they are not the comparisons' true power.
+The median absolute gap was 16.9 percentage points, with quartiles of 11.3 and 40.0. Only one comparison had a gap of at most one point, and nine used the 16-item minimum. [`confirmation_sensitivity.json`](../results/known_truth/confirmation_sensitivity.json) contains each gap, adjusted p-value and item count.
+
+Those plans used observed pilot gaps. Under each plan's own gap and variance estimates, t-test power was 76.4–79.8% for the 18 plans above the minimum and at least 83.0% for the nine at it. The sum was 22.8 expected detections. These calculations depend on the pilot estimates being correct.
+
+## Recompute
+
+After `uv sync --locked`, `uv run python scripts/calibrate.py` regenerates the tables and calibration figure without model downloads. `uv run python scripts/hero.py` draws the README image from the result files.
+
+CI runs `uv run python scripts/check_results.py` on x86-64 and arm64. It recomputes the tables, allows relative floating-point differences of 1e-12, and compares the generated figures and example CSV with the saved files. It also checks simulated rates against exact power, null error rates, Holm families and plan counts.
+
+## Limitations
+
+- Items are independent and binary. The simulation does not cover clustered prompts, repeated-decoding t-tests, adaptive stopping or model selection.
+- The bound is conservative and still uses a Gaussian budget. Its success in these five designs is not an exact-power guarantee for other settings.
+- Power targets apply to individual comparisons. The shared-model experiment covers one dependence structure at fixed sizes.
+- The six-model experiment mostly contains large accuracy gaps and used a different planning rule and test.
 
 ## References
 
-1. Richard H. Browne. 1995. *On the use of a pilot sample for sample size determination*. Statistics in Medicine 14(17):1933–1940. DOI: 10.1002/sim.4780141709. [Opened PubMed abstract](https://pubmed.ncbi.nlm.nih.gov/8532986/): an upper one-sided confidence limit on the pilot standard deviation, rather than the pilot estimate, achieved the planned t-test power in most simulated trials.
-2. Robert J. Connor. 1987. *Sample size for testing differences in proportions for the paired-sample design*. Biometrics 43(1):207–211. [Opened PubMed abstract](https://pubmed.ncbi.nlm.nih.gov/3567305): Miettinen's matched-pair approximation tends to overestimate power relative to Duffy's exact power, and Connor gives a more conservative approximation. I did not open the full text, so the null-variance budget above is my derivation, not a reproduction of Connor's formula.
+1. Richard H. Browne. 1995. *On the use of a pilot sample for sample size determination*. Statistics in Medicine 14(17):1933–1940. [PubMed](https://pubmed.ncbi.nlm.nih.gov/8532986/).
+2. Robert J. Connor. 1987. *Sample size for testing differences in proportions for the paired-sample design*. Biometrics 43(1):207–211. [PubMed](https://pubmed.ncbi.nlm.nih.gov/3567305/).

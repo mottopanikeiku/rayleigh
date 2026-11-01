@@ -1,4 +1,4 @@
-"""Draw the README hero, light and dark, from committed result files only."""
+"""Draw light and dark README images from the result files."""
 
 import csv
 import json
@@ -69,13 +69,13 @@ def make_hero(theme, destination):
         )
     )
     lines = (
-        (0.9, 16, "text", "Which 80%-power plan delivers 80%?"),
+        (0.9, 16, "text", "Detection rates by planning rule"),
         (
             0.835,
             8.5,
             "muted",
-            f"SIM, known truth: {PILOT_N}-item pilot, exact McNemar test at the meaningful "
-            "effect, unrun plans count as misses",
+            f"Simulation: {PILOT_N}-item pilot, exact McNemar test, 80% target power. "
+            "Unrun plans count as misses.",
         ),
         (
             0.115,
@@ -88,9 +88,9 @@ def make_hero(theme, destination):
             0.045,
             8.5,
             "text",
-            f"MEAS, six open models: {sensitivity['nominal_detections']}/{sensitivity['tested']}"
-            f" fresh comparisons detected, {holm['all_planned']} after Holm over all "
-            f"{sensitivity['planned']} planned; median realized gap {100 * median_gap:.1f} points.",
+            f"Six models: {sensitivity['nominal_detections']}/{sensitivity['tested']}"
+            f" comparisons detected; {holm['all_planned']} after Holm. "
+            f"Median accuracy gap: {100 * median_gap:.1f} points.",
         ),
     )
     for y, size, color, line in lines:
@@ -151,7 +151,7 @@ def make_hero(theme, destination):
     destination.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(
         destination,
-        metadata={"Date": None, "Title": "rayleigh: which 80%-power plan delivers 80%?"},
+        metadata={"Date": None, "Title": "rayleigh: detection rates by planning rule"},
         facecolor=colors["background"],
     )
     plt.close(figure)

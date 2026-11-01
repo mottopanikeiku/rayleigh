@@ -312,7 +312,4 @@ def clean_cache():
     """Remove only this experiment's cached model weights after all runs finish."""
     protocol = json.loads((ROOT / "results/prospective/protocol.json").read_text())
     result = remove_weight_cache.remote([model["id"] for model in protocol["models"]])
-    (ROOT / "results/prospective/cache_cleanup.json").write_text(
-        json.dumps(result, indent=2) + "\n"
-    )
     print(result)
