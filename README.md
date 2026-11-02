@@ -1,6 +1,6 @@
 # rayleigh
 
-A sample-size calculator for comparing two LLMs on the same benchmark questions. There's a [browser version](https://mottopanikeiku.github.io/rayleigh/) for quick what-ifs and a Python planner that reads your pilot scores.
+rayleigh is a sample-size calculator for comparing two LLMs on the same benchmark questions, with a [browser version](https://mottopanikeiku.github.io/rayleigh/) for quick what-ifs and a Python planner that reads your pilot scores.
 
 [<img src="docs/calculator.png" alt="The rayleigh calculator planning a 5-point gap from a 64-question pilot with 10 disagreements: 787 shared items" width="420">](https://mottopanikeiku.github.io/rayleigh/)
 
@@ -15,7 +15,7 @@ uv sync --locked
 uv run rayleigh --difference 0.05 --pilot examples/gsm8k_qwen7_phi35_pilot.csv
 ```
 
-`--difference 0.05` asks for a five-point gap. The JSON ends with the budgets, in questions per model:
+`--difference 0.05` asks for a five-point gap, and the JSON it prints ends with the budgets in questions per model:
 
 ```text
 "paired_items_per_model": 496,
@@ -23,7 +23,7 @@ uv run rayleigh --difference 0.05 --pilot examples/gsm8k_qwen7_phi35_pilot.csv
 "unpaired_items_per_model": 611
 ```
 
-The first plugs in the pilot's disagreement rate as is. The second uses a 95% upper bound on it, which costs more questions and protects you from a pilot that happened to see too few disagreements. From Python (import name `eval_power`; the `rayleigh` package on PyPI is unrelated, so install from this checkout):
+The paired budget plugs in the pilot's disagreement rate as is, while the bound budget uses a 95% upper bound on it, which costs more questions and protects you from a pilot that happened to see too few disagreements. From Python the import name is `eval_power`, and since the `rayleigh` package on PyPI is unrelated, install from this checkout:
 
 ```python
 from eval_power import discordance_upper_bound, read_paired_csv, required_items
@@ -33,11 +33,11 @@ discordant = int((scores[:, 0] != scores[:, 1]).sum())
 n = required_items(0.05, discordance_upper_bound(discordant, len(item_ids)))  # 787
 ```
 
-[`examples/plan_from_pilot.py`](examples/plan_from_pilot.py) also checks exact power at the pilot's disagreement rate: 78% for 496 questions, 94% for 787. The [browser calculator](https://mottopanikeiku.github.io/rayleigh/) does the bound plan too: choose pilot counts, enter 64 items with 10 disagreements, and a 5-point gap needs the same 787.
+[`examples/plan_from_pilot.py`](examples/plan_from_pilot.py) also checks exact power at the pilot's disagreement rate, which is 78% for 496 questions and 94% for 787. The [browser calculator](https://mottopanikeiku.github.io/rayleigh/) does the bound plan too: choose pilot counts, enter 64 items with 10 disagreements, and a 5-point gap needs the same 787.
 
 ## Choosing a planning rule
 
-Decide the smallest gap you'd care about before looking at any data, and let the pilot estimate only how often the models disagree. Then:
+Decide the smallest gap you'd care about before looking at any data, and let the pilot estimate only how often the models disagree, since that rate decides which rule to use:
 
 | Situation | Rule | Power with a 128-question pilot |
 |---|---|---|
@@ -45,13 +45,13 @@ Decide the smallest gap you'd care about before looking at any data, and let the
 | Models disagree on 5% or fewer | target gap, 95% upper bound on disagreement | about 95%, versus 59–72% without the bound |
 | Tiny budgets | exact McNemar power | a 10-question Gaussian plan had 48% power; exact says 18 |
 
-The bound can price you out. At 1% disagreement and a 32-question pilot, every bound plan wanted more than 20,000 questions.
+The bound can price you out, though: at 1% disagreement and a 32-question pilot, every bound plan wanted more than 20,000 questions.
 
-Those power figures come from simulating five paired designs with known truth. The figure also includes the shortcut of planning around whatever accuracy gap the pilot showed. With 128-question pilots and an 80% target, it found the real difference only 15–68% of the time.
+Those power figures come from simulating five paired designs with known truth. The figure also includes the shortcut of planning around whatever accuracy gap the pilot showed, which with 128-question pilots and an 80% target found the real difference only 15–68% of the time.
 
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/hero-dark.svg"><img alt="Detection rates for five sample-size rules across five paired-evaluation designs" src="docs/hero-light.svg" width="760"></picture>
 
-Columns are designs: q is the share of questions where exactly one model is right, and the effect is the true accuracy gap. A budget that can't be planned counts as a miss.
+Each column is one design, with q the share of questions on which exactly one model is right and the effect the true accuracy gap. A budget that can't be planned counts as a miss.
 
 ## On real models
 
@@ -69,4 +69,4 @@ node --test site/*.test.mjs
 uv run python scripts/check_results.py    # recompute every table and compare with the saved files
 ```
 
-Simulation design, exact power, the six-model protocol, the Arena analysis and references are in [docs/method.md](docs/method.md). Benchmark response data comes from tinyBenchmarks and Chatbot Arena; sources and licenses are in [`data/`](data). Code is MIT.
+Simulation design, exact power, the six-model protocol, the Arena analysis and references are in [docs/method.md](docs/method.md). Benchmark response data comes from tinyBenchmarks and Chatbot Arena, with sources and licenses in [`data/`](data), and the code is MIT licensed.

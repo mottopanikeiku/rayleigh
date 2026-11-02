@@ -21,7 +21,7 @@
 <main>
   <section id="calculator" aria-labelledby="plan-title" tabindex="-1">
     <h2 id="plan-title">Inputs</h2>
-    <p>Both models answer the same items in a paired comparison. For an unpaired comparison, each model gets a separate set of items.</p>
+    <p>In a paired comparison both models answer the same items, while in an unpaired one each model gets a separate set of items.</p>
     <div class="planner">
       <form id="plan-form">
         <fieldset>
@@ -33,7 +33,7 @@
             <div id="accuracy-b-field"><label for="accuracy-b">Model B accuracy (%)</label><input id="accuracy-b" type="number" min="0" max="100" step="any" value="72" required></div>
             <div id="gap-field" hidden><label for="gap">B − A gap (percentage points)</label><input id="gap" type="number" min="-100" max="100" step="any" value="2" disabled required></div>
           </div>
-          <p class="hint">A 2-point gap means 70% versus 72%. The baseline accuracy helps determine the variance.</p>
+          <p class="hint">A 2-point gap means 70% versus 72%, and the baseline accuracy matters because it helps determine the variance.</p>
         </fieldset>
         <fieldset>
           <legend>Study design</legend>
@@ -43,13 +43,13 @@
             <div id="correlation-field"><label for="correlation">Correlation (−1 to 1)</label><input id="correlation" type="number" min="-1" max="1" step="any" value="0.5" required></div>
             <div id="discordance-field" hidden><label for="discordance">Discordant items (%)</label><input id="discordance" type="number" min="0" max="100" step="any" value="20.601191" disabled required></div>
             <div id="pilot-field" class="fields" hidden><div><label for="pilot-items">Pilot items</label><input id="pilot-items" type="number" min="1" step="1" value="64" disabled required></div><div><label for="pilot-disagreements">Pilot disagreements</label><input id="pilot-disagreements" type="number" min="0" step="1" value="10" disabled required></div></div>
-            <p class="hint">Discordance counts items on which exactly one model is correct. Not every correlation is possible for two binary accuracies. With pilot counts, the plan uses a one-sided 95% upper bound on discordance, as the study recommends when models disagree on 5% of items or fewer.</p>
+            <p class="hint">Discordance counts items on which exactly one model is correct, and not every correlation is possible for two binary accuracies. With pilot counts, the plan uses a one-sided 95% upper bound on discordance, as the study recommends when models disagree on 5% of items or fewer.</p>
           </div>
         </fieldset>
         <fieldset>
           <legend>Error rates</legend>
           <div class="fields"><div><label for="alpha">Two-sided alpha</label><input id="alpha" type="number" min="0.000001" max="0.5" step="any" value="0.05" required></div><div><label for="power">Target power (%)</label><input id="power" type="number" min="1" max="99.9999" step="any" value="80" required></div></div>
-          <p class="hint">Alpha is the false-positive rate for one comparison. Power is the chance of detecting the target gap under your assumptions.</p>
+          <p class="hint">Alpha is the false-positive rate for one comparison, and power is the chance of detecting the target gap under your assumptions.</p>
         </fieldset>
         <button type="submit">Calculate item budget</button>
       </form>
@@ -60,8 +60,8 @@
         <p id="plan-details">Choose the comparison, then calculate.</p>
         <p id="plan-error" class="error" hidden></p>
         <hr>
-        <p>This budget assumes independent items and a fixed variance. Choose the target gap before looking at pilot scores.</p>
-        <p>For very small budgets, check exact McNemar power. The <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a> computes it from a pilot CSV.</p>
+        <p>This budget assumes independent items and a fixed variance, and the target gap should be chosen before you look at pilot scores.</p>
+        <p>For very small budgets, check exact McNemar power, which the <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a> computes from a pilot CSV.</p>
       </div>
     </div>
   </section>
@@ -70,17 +70,17 @@
     <p>I used small pilots to plan comparisons, then tested the budgets by resampling unused benchmark items. Select a benchmark to see how often those plans reached their 80% power target.</p>
     <div class="fields filters"><div><label for="benchmark">Benchmark</label><select id="benchmark"><option value="arc">ARC-Challenge</option><option value="gsm8k">GSM8K</option><option value="winogrande">WinoGrande</option><option value="hellaswag">HellaSwag</option><option value="mmlu">MMLU</option></select></div><div><label for="pilot">Pilot items</label><select id="pilot"><option value="128">128</option><option value="256">256</option></select></div></div>
     <div id="calibration" aria-live="polite" aria-atomic="true"><p>Loading results…</p></div>
-    <p class="hint">Each benchmark has 40 model pairs chosen independently of scores, with five pilot splits per pair. Each plan with a usable gap and variance gets 1,000 exact two-sided McNemar trials, sampling unused items with replacement. The target is 80% power at alpha 0.05.</p>
-    <p class="hint">The data cover 395 models from the 2024 Open LLM Leaderboard. The results below describe those pilot plans; they stay fixed when you change the calculator inputs.</p>
+    <p class="hint">Each benchmark has 40 model pairs chosen independently of scores, with five pilot splits per pair. Each plan with a usable gap and variance gets 1,000 exact two-sided McNemar trials, sampling unused items with replacement, against a target of 80% power at alpha 0.05.</p>
+    <p class="hint">The data cover 395 models from the 2024 Open LLM Leaderboard. The results below describe those pilot plans, so they stay fixed when you change the calculator inputs.</p>
     <p class="source-links">Every plan and setting behind these numbers is in the repository's <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/results">results folder</a>.</p>
   </section>
   <section aria-labelledby="method-title" class="method">
     <h2 id="method-title">Calculation</h2>
-    <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance. Equivalently, subtract twice the covariance from the unpaired variance. From pilot counts, the variance v is the one-sided 95% Clopper–Pearson upper bound on q, which also bounds q − δ². I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
-    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>, and the browser's discordance bounds match SciPy's within 10<sup>−12</sup>. With an assumed disagreement rate, the Gaussian budget can fall short when disagreement is rare; any Gaussian budget can fall short for very small samples. Clustered questions or several comparisons need their own adjustment.</p>
+    <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance, or equivalently the unpaired variance minus twice the covariance. From pilot counts, the variance v is the one-sided 95% Clopper–Pearson upper bound on q, which also bounds q − δ². I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
+    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>, and the browser's discordance bounds match SciPy's within 10<sup>−12</sup>. With an assumed disagreement rate the Gaussian budget can fall short when disagreement is rare, and any Gaussian budget can fall short for very small samples. Clustered questions or several comparisons need their own adjustment.</p>
   </section>
 </main>
 <footer>Alp Cetin · <a href="https://github.com/mottopanikeiku/rayleigh">Source and methods</a></footer>
-<noscript><p class="error">This calculator needs JavaScript. You can also use the <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a>.</p></noscript>
+<noscript><p class="error">This calculator needs JavaScript, but you can also use the <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a>.</p></noscript>
 </body>
 </html>

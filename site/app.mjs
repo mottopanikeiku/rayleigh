@@ -49,14 +49,14 @@ function calculate() {
     element('item-unit').textContent = paired ? 'shared items · both models answer each item' : `items per model · ${integer.format(BigInt(n) * 2n)} responses in total`;
     let dependence = '';
     if (fromPilot) {
-      dependence = ` Disagreement: at most ${percent(discordance)} (95% upper bound from ${number('pilot-disagreements')} of ${integer.format(number('pilot-items'))} pilot items), used as the variance.`;
+      dependence = ` The disagreement rate is at most ${percent(discordance)} (the 95% upper bound from ${number('pilot-disagreements')} of ${integer.format(number('pilot-items'))} pilot items), and that bound is used as the variance.`;
       if (Math.abs(delta) > discordance) dependence += ` A ${formatPointGap(delta)}-point gap needs disagreement on at least ${percent(Math.abs(delta))} of items, more than this bound allows, so the pilot argues against a gap that large.`;
     } else if (paired) {
-      dependence = ` Variance: ${formatDecimal(variance, 6)}. Discordance: ${percent(discordance)}.`;
+      dependence = ` The variance is ${formatDecimal(variance, 6)} and the discordance is ${percent(discordance)}.`;
     } else {
-      dependence = ` Variance: ${formatDecimal(variance, 6)}.`;
+      dependence = ` The variance is ${formatDecimal(variance, 6)}.`;
     }
-    element('plan-details').textContent = `For a ${formatPointGap(delta)}-point gap, alpha ${alpha}, and ${percent(power)} target power.${dependence} Gaussian power at this budget: ${percent(gaussianPower(delta, variance, n, alpha))}.`;
+    element('plan-details').textContent = `For a ${formatPointGap(delta)}-point gap at alpha ${alpha} and ${percent(power)} target power, this budget gives ${percent(gaussianPower(delta, variance, n, alpha))} Gaussian power.${dependence}`;
     element('plan-error').hidden = true;
   } catch (error) {
     element('item-count').textContent = '—';
@@ -88,12 +88,12 @@ function renderCalibration() {
   element('calibration').innerHTML = `
     <div class="metrics">
       <div class="metric"><h3>Plans reaching 80% power</h3><strong>${percent(counts.reached / counts.evaluated)}</strong><p>${counts.reached} of ${counts.evaluated} plans had an estimated detection rate of at least 80%.</p></div>
-      <div class="metric"><h3>Median detection rate</h3><strong>${percent(Number(row.iid_power_median))}</strong><p>Middle half: ${percent(Number(row.iid_power_q25))}–${percent(Number(row.iid_power_q75))}.</p></div>
+      <div class="metric"><h3>Median detection rate</h3><strong>${percent(Number(row.iid_power_median))}</strong><p>The middle half of plans ran from ${percent(Number(row.iid_power_q25))} to ${percent(Number(row.iid_power_q75))}.</p></div>
       <div class="metric"><h3>Clearly below target</h3><strong>${percent(below)}</strong><p>The upper 95% Monte Carlo bound was below 80%.</p></div>
     </div>
-    <p>${counts.evaluated} of ${counts.total} plans could be evaluated. The other ${counts.total - counts.evaluated} had zero pilot gap or variance and are excluded.</p>
+    <p>${counts.evaluated} of ${counts.total} plans could be evaluated, while the other ${counts.total - counts.evaluated} had zero pilot gap or variance and are excluded.</p>
     <div class="bar" aria-hidden="true"><span class="below" style="width:${100 * below}%"></span><span class="uncertain" style="width:${100 * uncertain}%"></span><span class="above" style="width:${100 * above}%"></span></div>
-    <p class="hint">95% Monte Carlo intervals: ${percent(below)} below 80% · ${percent(uncertain)} include 80% · ${percent(above)} above 80%. The bar uses intervals; the first count uses estimated detection rates.</p>`;
+    <p class="hint">By their 95% Monte Carlo intervals, ${percent(below)} of plans fall below 80%, ${percent(uncertain)} include 80% and ${percent(above)} are above it. The bar uses these intervals, while the first count uses estimated detection rates.</p>`;
 }
 for (const id of ['benchmark', 'pilot']) element(id).addEventListener('change', renderCalibration);
 
