@@ -19,6 +19,7 @@ function updateFields() {
   showField('paired-fields', paired);
   showField('correlation-field', paired && element('dependence').value === 'correlation');
   showField('discordance-field', paired && element('dependence').value === 'discordance');
+  showField('pilot-field', paired && element('dependence').value === 'pilot');
 }
 for (const id of ['input-mode', 'design', 'dependence']) element(id).addEventListener('change', updateFields);
 updateFields();
@@ -34,9 +35,11 @@ function calculate() {
     const pa = number('accuracy-a') / 100;
     const pb = element('input-mode').value === 'gap' ? pa + number('gap') / 100 : number('accuracy-b') / 100;
     const paired = element('design').value === 'paired';
+    const fromPilot = paired && element('dependence').value === 'pilot';
     const { variance, discordance } = comparisonVariance({
       pa, pb, paired, dependence: element('dependence').value,
       rho: number('correlation'), discordance: number('discordance') / 100,
+      pilotItems: number('pilot-items'), pilotDisagreements: number('pilot-disagreements'),
     });
     const delta = pb - pa;
     const alpha = number('alpha');
@@ -44,7 +47,16 @@ function calculate() {
     const n = requiredItems(delta, variance, alpha, power);
     element('item-count').textContent = integer.format(n);
     element('item-unit').textContent = paired ? 'shared items · both models answer each item' : `items per model · ${integer.format(BigInt(n) * 2n)} responses in total`;
-    element('plan-details').textContent = `For a ${formatPointGap(delta)}-point gap, alpha ${alpha}, and ${percent(power)} target power. Variance: ${formatDecimal(variance, 6)}.${paired ? ` Discordance: ${percent(discordance)}.` : ''} Gaussian power at this budget: ${percent(gaussianPower(delta, variance, n, alpha))}.`;
+    let dependence = '';
+    if (fromPilot) {
+      dependence = ` Disagreement: at most ${percent(discordance)} (95% upper bound from ${number('pilot-disagreements')} of ${integer.format(number('pilot-items'))} pilot items), used as the variance.`;
+      if (Math.abs(delta) > discordance) dependence += ` A ${formatPointGap(delta)}-point gap needs disagreement on at least ${percent(Math.abs(delta))} of items, more than this bound allows, so the pilot argues against a gap that large.`;
+    } else if (paired) {
+      dependence = ` Variance: ${formatDecimal(variance, 6)}. Discordance: ${percent(discordance)}.`;
+    } else {
+      dependence = ` Variance: ${formatDecimal(variance, 6)}.`;
+    }
+    element('plan-details').textContent = `For a ${formatPointGap(delta)}-point gap, alpha ${alpha}, and ${percent(power)} target power.${dependence} Gaussian power at this budget: ${percent(gaussianPower(delta, variance, n, alpha))}.`;
     element('plan-error').hidden = true;
   } catch (error) {
     element('item-count').textContent = '—';

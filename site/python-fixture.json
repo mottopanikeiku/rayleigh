@@ -3,6 +3,7 @@
   "item_tolerance": 1,
   "power_absolute_tolerance": 1e-12,
   "variance_absolute_tolerance": 1e-12,
+  "bound_absolute_tolerance": 1e-12,
   "cases": [
     {
       "delta": 0.001,
@@ -1743,6 +1744,85 @@
       "discordance": 0.5,
       "paired_variance": 0.5,
       "unpaired_variance": 0.375
+    }
+  ],
+  "bounds": [
+    {
+      "discordant": 0,
+      "n": 1,
+      "delta": 0.2,
+      "bound": 0.95,
+      "items": 187
+    },
+    {
+      "discordant": 0,
+      "n": 32,
+      "delta": 0.02,
+      "bound": 0.08936819898626475,
+      "items": 1754
+    },
+    {
+      "discordant": 1,
+      "n": 32,
+      "delta": 0.02,
+      "bound": 0.13984946027422598,
+      "items": 2745
+    },
+    {
+      "discordant": 10,
+      "n": 64,
+      "delta": 0.05,
+      "bound": 0.2506114550750107,
+      "items": 787
+    },
+    {
+      "discordant": 2,
+      "n": 128,
+      "delta": 0.01,
+      "bound": 0.04836699299276614,
+      "items": 3797
+    },
+    {
+      "discordant": 6,
+      "n": 128,
+      "delta": 0.02,
+      "bound": 0.09041721092497311,
+      "items": 1775
+    },
+    {
+      "discordant": 25,
+      "n": 128,
+      "delta": 0.05,
+      "bound": 0.26197497503095235,
+      "items": 823
+    },
+    {
+      "discordant": 128,
+      "n": 128,
+      "delta": 0.05,
+      "bound": 1.0,
+      "items": 3140
+    },
+    {
+      "discordant": 5,
+      "n": 1000,
+      "delta": 0.005,
+      "bound": 0.010484076911415651,
+      "items": 3292
+    },
+    {
+      "discordant": 500,
+      "n": 1000,
+      "delta": 0.05,
+      "bound": 0.5264822687643087,
+      "items": 1653
+    },
+    {
+      "discordant": 50,
+      "n": 10000,
+      "delta": 0.002,
+      "bound": 0.00632449977079383,
+      "items": 12411
     }
   ]
 }

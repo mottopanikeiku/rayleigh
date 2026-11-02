@@ -15,12 +15,12 @@
 <header>
   <nav aria-label="Project"><a href="https://github.com/mottopanikeiku/rayleigh">rayleigh / source</a><label class="theme">Theme <select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label></nav>
   <p class="eyebrow">Paired sample-size calculator</p>
-  <h1>How many benchmark items do I need?</h1>
-  <p class="intro">Choose the smallest accuracy gap you care about, then estimate how often the models disagree. This calculator turns those assumptions into an item count using a two-sided Gaussian approximation.</p>
+  <h1>Plan a paired model comparison</h1>
+  <p class="intro">Choose the smallest accuracy gap you care about, then say how often the models disagree: as an assumption, or as counts from a pilot. The calculator turns that into an item count using a two-sided Gaussian approximation.</p>
 </header>
 <main>
   <section id="calculator" aria-labelledby="plan-title" tabindex="-1">
-    <h2 id="plan-title">Plan a comparison</h2>
+    <h2 id="plan-title">Inputs</h2>
     <p>Both models answer the same items in a paired comparison. For an unpaired comparison, each model gets a separate set of items.</p>
     <div class="planner">
       <form id="plan-form">
@@ -39,10 +39,11 @@
           <legend>Study design</legend>
           <label for="design">Items</label><select id="design"><option value="paired">Paired: same items for both models</option><option value="unpaired">Unpaired: independent items, equal counts</option></select>
           <div id="paired-fields">
-            <label for="dependence">Dependence between models</label><select id="dependence"><option value="correlation">Correlation of correctness</option><option value="discordance">Fraction of items where models disagree</option></select>
+            <label for="dependence">Dependence between models</label><select id="dependence"><option value="correlation">Correlation of correctness</option><option value="discordance">Fraction of items where models disagree</option><option value="pilot">Pilot counts, planned at the 95% upper bound</option></select>
             <div id="correlation-field"><label for="correlation">Correlation (−1 to 1)</label><input id="correlation" type="number" min="-1" max="1" step="any" value="0.5" required></div>
             <div id="discordance-field" hidden><label for="discordance">Discordant items (%)</label><input id="discordance" type="number" min="0" max="100" step="any" value="20.601191" disabled required></div>
-            <p class="hint">Discordance counts items on which exactly one model is correct. Not every correlation is possible for two binary accuracies.</p>
+            <div id="pilot-field" class="fields" hidden><div><label for="pilot-items">Pilot items</label><input id="pilot-items" type="number" min="1" step="1" value="64" disabled required></div><div><label for="pilot-disagreements">Pilot disagreements</label><input id="pilot-disagreements" type="number" min="0" step="1" value="10" disabled required></div></div>
+            <p class="hint">Discordance counts items on which exactly one model is correct. Not every correlation is possible for two binary accuracies. With pilot counts, the plan uses a one-sided 95% upper bound on discordance, as the study recommends when models disagree on 5% of items or fewer.</p>
           </div>
         </fieldset>
         <fieldset>
@@ -60,7 +61,7 @@
         <p id="plan-error" class="error" hidden></p>
         <hr>
         <p>This budget assumes independent items and a fixed variance. Choose the target gap before looking at pilot scores.</p>
-        <p>For rare disagreement, use the Python planner's upper bound on discordance. For very small budgets, check exact McNemar power. The <a href="https://github.com/mottopanikeiku/rayleigh#plan-from-your-own-scores">Python examples</a> show both.</p>
+        <p>For very small budgets, check exact McNemar power. The <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a> computes it from a pilot CSV.</p>
       </div>
     </div>
   </section>
@@ -75,11 +76,11 @@
   </section>
   <section aria-labelledby="method-title" class="method">
     <h2 id="method-title">Calculation</h2>
-    <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance. Equivalently, subtract twice the covariance from the unpaired variance. I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
-    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>. Variance comes from the accuracies and dependence you enter. The Gaussian budget can fall short for small samples or rare disagreement, and clustered questions or several comparisons need their own adjustment.</p>
+    <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance. Equivalently, subtract twice the covariance from the unpaired variance. From pilot counts, the variance v is the one-sided 95% Clopper–Pearson upper bound on q, which also bounds q − δ². I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
+    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>, and the browser's discordance bounds match SciPy's within 10<sup>−12</sup>. With an assumed disagreement rate, the Gaussian budget can fall short when disagreement is rare; any Gaussian budget can fall short for very small samples. Clustered questions or several comparisons need their own adjustment.</p>
   </section>
 </main>
 <footer>Alp Cetin · <a href="https://github.com/mottopanikeiku/rayleigh">Source and methods</a></footer>
-<noscript><p class="error">This calculator needs JavaScript. You can also use the <a href="https://github.com/mottopanikeiku/rayleigh#plan-from-your-own-scores">Python planner</a>.</p></noscript>
+<noscript><p class="error">This calculator needs JavaScript. You can also use the <a href="https://github.com/mottopanikeiku/rayleigh#from-a-pilot">Python planner</a>.</p></noscript>
 </body>
 </html>

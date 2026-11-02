@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { comparisonVariance, gaussianPower, normalCDF, normalQuantile, requiredItems } from './math.mjs';
+import { comparisonVariance, discordanceUpperBound, gaussianPower, normalCDF, normalQuantile, requiredItems } from './math.mjs';
 import { parseCSV } from './csv.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('./python-fixture.json', import.meta.url), 'utf8'));
@@ -24,6 +24,19 @@ for (const [index, c] of fixture.comparisons.entries()) {
     assert.ok(Math.abs(comparisonVariance({ ...inputs, paired: false }).variance - c.unpaired_variance) <= fixture.variance_absolute_tolerance);
   });
 }
+for (const c of fixture.bounds) {
+  test(`Python discordance bound and bound plan: ${c.discordant} of ${c.n}, gap=${c.delta}`, () => {
+    const bound = discordanceUpperBound(c.discordant, c.n);
+    assert.ok(Math.abs(bound - c.bound) <= fixture.bound_absolute_tolerance, `${bound} vs Python ${c.bound}`);
+    const { variance } = comparisonVariance({ pa: 0.5, pb: 0.5 + c.delta, paired: true, dependence: 'pilot', pilotItems: c.n, pilotDisagreements: c.discordant });
+    assert.equal(variance, bound);
+    assert.ok(Math.abs(requiredItems(c.delta, bound) - c.items) <= fixture.item_tolerance);
+  });
+}
+test('The README pilot plans 787 items at a 5-point gap', () => {
+  const { variance } = comparisonVariance({ pa: 0.7, pb: 0.75, paired: true, dependence: 'pilot', pilotItems: 64, pilotDisagreements: 10 });
+  assert.equal(requiredItems(0.75 - 0.7, variance), 787);
+});
 test('Normal CDF tails and inverse', () => {
   assert.equal(normalCDF(0), 0.5);
   for (const p of [1e-8, 1e-6, 0.025, 0.1, 0.5, 0.8, 0.99, 1 - 1e-8]) {
@@ -42,6 +55,9 @@ test('Invalid or impossible plans are refused', () => {
   assert.throws(() => comparisonVariance({ pa: 0.7, pb: 0.72, paired: true, dependence: 'discordance', discordance: 0.01 }), /require discordance/);
   assert.throws(() => comparisonVariance({ pa: 0, pb: 0.5, paired: true, rho: 0 }), /undefined/);
   assert.throws(() => comparisonVariance({ pa: 0.7, pb: 1.01, paired: false }), /Accuracies/);
+  for (const [discordant, n] of [[1, 0], [-1, 10], [11, 10], [1.5, 10], [1, 2.5], [NaN, 10]]) {
+    assert.throws(() => discordanceUpperBound(discordant, n), RangeError);
+  }
 });
 test('CSV quoting, CRLF, and blank lines', () => {
   assert.deepEqual(parseCSV('a,b\r\n"x,y","quoted ""word"""\r\n\r\n'), [{ a: 'x,y', b: 'quoted "word"' }]);

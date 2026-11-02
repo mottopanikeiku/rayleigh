@@ -95,7 +95,49 @@ export function requiredItems(delta, variance, alpha = 0.05, power = 0.8) {
   return upper;
 }
 
-export function comparisonVariance({ pa, pb, paired, dependence = 'correlation', rho = 0, discordance }) {
+function binomialCDF(k, n, p) {
+  // P(Binomial(n, p) <= k), summed in log space so large pilots do not underflow.
+  const logRatio = Math.log(p) - Math.log1p(-p);
+  let logTerm = n * Math.log1p(-p);
+  let max = logTerm;
+  let sum = 1;
+  for (let i = 0; i < k; i++) {
+    logTerm += Math.log((n - i) / (i + 1)) + logRatio;
+    if (logTerm > max) {
+      sum = sum * Math.exp(max - logTerm) + 1;
+      max = logTerm;
+    } else {
+      sum += Math.exp(logTerm - max);
+    }
+  }
+  return Math.min(1, Math.exp(max) * sum);
+}
+
+// One-sided Clopper-Pearson upper bound on disagreement, matching
+// discordance_upper_bound in src/eval_power/stats.py.
+export function discordanceUpperBound(discordant, n, confidence = 0.95) {
+  if (!Number.isSafeInteger(n) || n < 1) throw new RangeError('Pilot items must be a whole number of at least 1.');
+  if (!Number.isSafeInteger(discordant) || discordant < 0 || discordant > n) {
+    throw new RangeError('Pilot disagreements must be a whole number between 0 and the pilot size.');
+  }
+  finite(confidence, 'Confidence');
+  if (!(confidence > 0 && confidence < 1)) throw new RangeError('Confidence must be between 0 and 1.');
+  if (discordant === n) return 1;
+  const tail = 1 - confidence;
+  if (discordant === 0) return -Math.expm1(Math.log(tail) / n);
+  // The bound is the q at which seeing this few disagreements has probability 1 - confidence.
+  let lower = 0;
+  let upper = 1;
+  for (let k = 0; k < 200; k++) {
+    const middle = (lower + upper) / 2;
+    if (middle <= lower || middle >= upper) break;
+    if (binomialCDF(discordant, n, middle) > tail) lower = middle;
+    else upper = middle;
+  }
+  return (lower + upper) / 2;
+}
+
+export function comparisonVariance({ pa, pb, paired, dependence = 'correlation', rho = 0, discordance, pilotItems, pilotDisagreements }) {
   finite(pa, 'Model A accuracy');
   finite(pb, 'Model B accuracy');
   if (pa < 0 || pa > 1 || pb < 0 || pb > 1) throw new RangeError('Accuracies must be between 0% and 100%.');
@@ -103,6 +145,11 @@ export function comparisonVariance({ pa, pb, paired, dependence = 'correlation',
   const minDiscordance = Math.abs(pa - pb);
   const maxDiscordance = Math.min(pa + pb, 2 - pa - pb);
   if (!paired) return { variance: independent, discordance: null, minDiscordance, maxDiscordance };
+  if (dependence === 'pilot') {
+    // Like the Python bound plan: Var(A - B) = q - gap² <= q, so the bound itself is the variance.
+    const bound = discordanceUpperBound(pilotDisagreements, pilotItems);
+    return { variance: bound, discordance: bound, minDiscordance, maxDiscordance };
+  }
   let q;
   if (dependence === 'discordance') {
     q = finite(discordance, 'Discordance');

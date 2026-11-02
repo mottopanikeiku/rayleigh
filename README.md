@@ -2,7 +2,7 @@
 
 A sample-size calculator for comparing two LLMs on the same benchmark questions. There's a [browser version](https://mottopanikeiku.github.io/rayleigh/) for quick what-ifs and a Python planner that reads your pilot scores.
 
-[<img src="docs/calculator.png" alt="The rayleigh calculator showing a 2-point gap needs 4,040 shared items" width="420">](https://mottopanikeiku.github.io/rayleigh/)
+[<img src="docs/calculator.png" alt="The rayleigh calculator planning a 5-point gap from a 64-question pilot with 10 disagreements: 787 shared items" width="420">](https://mottopanikeiku.github.io/rayleigh/)
 
 You give it the smallest accuracy gap you care about and how often the two models disagree (one right, the other wrong). Disagreement drives the variance of a paired comparison, so two models that tend to miss the same questions need fewer of them to tell apart.
 
@@ -33,7 +33,7 @@ discordant = int((scores[:, 0] != scores[:, 1]).sum())
 n = required_items(0.05, discordance_upper_bound(discordant, len(item_ids)))  # 787
 ```
 
-[`examples/plan_from_pilot.py`](examples/plan_from_pilot.py) also checks exact power at the pilot's disagreement rate: 78% for 496 questions, 94% for 787. The browser calculator only does the Gaussian plan with a variance you supply.
+[`examples/plan_from_pilot.py`](examples/plan_from_pilot.py) also checks exact power at the pilot's disagreement rate: 78% for 496 questions, 94% for 787. The [browser calculator](https://mottopanikeiku.github.io/rayleigh/) does the bound plan too: choose pilot counts, enter 64 items with 10 disagreements, and a 5-point gap needs the same 787.
 
 ## Choosing a planning rule
 

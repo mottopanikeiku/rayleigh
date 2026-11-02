@@ -9,11 +9,14 @@ import numpy as np
 
 from eval_power.stats import (
     correlation,
+    discordance_upper_bound,
     gaussian_power,
     paired_variance,
     required_items,
     unpaired_variance,
 )
+
+GROUPS = ("cases", "comparisons", "bounds")
 
 
 def fixture():
@@ -72,13 +75,40 @@ def fixture():
                 "unpaired_variance": unpaired_variance(a, b),
             }
         )
+    bounds = []
+    # Pilot (disagreements, items) and a target gap; (10, 64) is the README's GSM8K pilot.
+    for discordant, n, delta in [
+        (0, 1, 0.2),
+        (0, 32, 0.02),
+        (1, 32, 0.02),
+        (10, 64, 0.05),
+        (2, 128, 0.01),
+        (6, 128, 0.02),
+        (25, 128, 0.05),
+        (128, 128, 0.05),
+        (5, 1000, 0.005),
+        (500, 1000, 0.05),
+        (50, 10000, 0.002),
+    ]:
+        bound = discordance_upper_bound(discordant, n)
+        bounds.append(
+            {
+                "discordant": discordant,
+                "n": n,
+                "delta": delta,
+                "bound": bound,
+                "items": required_items(delta, bound),
+            }
+        )
     return {
         "source": "src/eval_power/stats.py",
         "item_tolerance": 1,
         "power_absolute_tolerance": 1e-12,
         "variance_absolute_tolerance": 1e-12,
+        "bound_absolute_tolerance": 1e-12,
         "cases": cases,
         "comparisons": comparisons,
+        "bounds": bounds,
     }
 
 
@@ -86,10 +116,10 @@ def check_fixture(reference, committed):
     """Check numerical agreement, allowing the documented cross-platform rounding."""
     if reference.keys() != committed.keys():
         raise SystemExit("Fixture fields changed; regenerate the fixture")
-    for key in reference.keys() - {"cases", "comparisons"}:
+    for key in reference.keys() - set(GROUPS):
         if reference[key] != committed[key]:
             raise SystemExit(f"Fixture metadata changed: {key}")
-    for group in ("cases", "comparisons"):
+    for group in GROUPS:
         if len(reference[group]) != len(committed[group]):
             raise SystemExit(f"Fixture grid changed: {group}")
         for index, (actual, expected) in enumerate(
@@ -106,6 +136,8 @@ def check_fixture(reference, committed):
                     tolerance = reference["power_absolute_tolerance"]
                 elif key in ("rho", "paired_variance", "unpaired_variance"):
                     tolerance = reference["variance_absolute_tolerance"]
+                elif key == "bound":
+                    tolerance = reference["bound_absolute_tolerance"]
                 if value is None or old is None:
                     matches = value is old
                 else:

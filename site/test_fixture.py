@@ -10,8 +10,10 @@ REFERENCE = {
     "item_tolerance": 1,
     "power_absolute_tolerance": 1e-12,
     "variance_absolute_tolerance": 1e-12,
+    "bound_absolute_tolerance": 1e-12,
     "cases": [{"delta": 0.01, "items": 1000, "power_at_items": 0.8}],
     "comparisons": [{"pa": 0.7, "rho": 0.5, "paired_variance": 0.2}],
+    "bounds": [{"discordant": 10, "n": 64, "bound": 0.25, "items": 787}],
 }
 
 
@@ -19,6 +21,7 @@ def test_cross_platform_rounding():
     rounded = deepcopy(REFERENCE)
     rounded["cases"][0]["power_at_items"] += 1e-13
     rounded["comparisons"][0]["paired_variance"] += 1e-13
+    rounded["bounds"][0]["bound"] += 1e-13
     rounded["cases"][0]["items"] += 1
     check_fixture(REFERENCE, rounded)
 
@@ -31,6 +34,8 @@ def test_cross_platform_rounding():
         ("cases", "power_at_items", 2e-12),
         ("comparisons", "paired_variance", 2e-12),
         ("comparisons", "rho", 2e-12),
+        ("bounds", "bound", 2e-12),
+        ("bounds", "discordant", 1),
     ],
 )
 def test_changed_values_are_rejected(group, key, difference):
