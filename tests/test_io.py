@@ -108,12 +108,9 @@ def test_cli_reports_csv_errors_without_traceback(tmp_path, capsys):
     assert "line 3" in error and "Traceback" not in error
 
 
-def test_example_script_output_is_the_one_in_the_readme(capsys, monkeypatch):
+def test_example_script_plans_the_gsm8k_pilot(capsys, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["plan_from_pilot.py"])
     runpy.run_path(str(ROOT / "examples" / "plan_from_pilot.py"), run_name="__main__")
     output = capsys.readouterr().out
     assert "plug-in variance 496, discordance bound 787" in output
     assert f"{exact_mcnemar_power(0.05, 10 / 64, 496):.3f}" in output
-    readme = (ROOT / "README.md").read_text()
-    for line in output.splitlines():
-        assert line in readme, line

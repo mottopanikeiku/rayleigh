@@ -88,7 +88,7 @@ def main(argv=None) -> int:
                     "and their sample variance (ddof=1); null if that variance is zero.",
                     "Bound planning replaces that variance with a one-sided 95% Clopper-Pearson "
                     "upper bound on P(A != B), which is at least Var(A-B). It ignores the pilot "
-                    "gap and stays finite without discordant items; see docs/CALIBRATION.md.",
+                    "gap and stays finite without discordant items; see docs/method.md.",
                     "Unpaired planning assumes independent model outcomes and binomial marginals.",
                 ]
             )
