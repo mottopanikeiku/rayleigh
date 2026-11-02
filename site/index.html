@@ -71,20 +71,12 @@
     <div id="calibration" aria-live="polite" aria-atomic="true"><p>Loading results…</p></div>
     <p class="hint">Each benchmark has 40 model pairs chosen independently of scores, with five pilot splits per pair. Each plan with a usable gap and variance gets 1,000 exact two-sided McNemar trials, sampling unused items with replacement. The target is 80% power at alpha 0.05.</p>
     <p class="hint">The data cover 395 models from the 2024 Open LLM Leaderboard. The results below describe those pilot plans; they stay fixed when you change the calculator inputs.</p>
-    <p class="source-links"><a href="data/calibration.csv">Summary CSV</a> · <a href="data/pilot-summary.json">Plan counts</a> · <a href="https://github.com/mottopanikeiku/rayleigh/blob/main/results/pilot_plans.csv.gz">Individual plans</a> · <a href="https://github.com/mottopanikeiku/rayleigh/blob/main/results/configuration.json">Experiment settings</a></p>
+    <p class="source-links">Every plan and setting behind these numbers is in the repository's <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/results">results folder</a>.</p>
   </section>
   <section aria-labelledby="method-title" class="method">
     <h2 id="method-title">Calculation</h2>
     <p>For a gap δ, the unpaired variance is p<sub>A</sub>(1 − p<sub>A</sub>) + p<sub>B</sub>(1 − p<sub>B</sub>). For paired items it is q − δ², where q is discordance. Equivalently, subtract twice the covariance from the unpaired variance. I find the smallest integer n with Φ(−z − |δ|√(n/v)) + Φ(|δ|√(n/v) − z) at least the target power, where z is the two-sided normal critical value.</p>
-    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>. Variance comes from the accuracies and dependence you enter.</p>
-  </section>
-  <section aria-labelledby="limits-title">
-    <h2 id="limits-title">Limitations</h2>
-    <ul>
-      <li>The Gaussian budget can fall short for small samples or rare disagreement.</li>
-      <li>Clustered questions, finite item pools and multiple comparisons need separate adjustments.</li>
-      <li>The benchmark panel resamples existing answers. Its Monte Carlo intervals describe simulation uncertainty, and the results may change on new questions.</li>
-    </ul>
+    <p>The browser and Python planners agree within one item on the <a href="https://github.com/mottopanikeiku/rayleigh/tree/main/site">test grid</a>. Variance comes from the accuracies and dependence you enter. The Gaussian budget can fall short for small samples or rare disagreement, and clustered questions or several comparisons need their own adjustment.</p>
   </section>
 </main>
 <footer>Alp Cetin · <a href="https://github.com/mottopanikeiku/rayleigh">Source and methods</a></footer>
